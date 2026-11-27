@@ -20,5 +20,5 @@ fields.title='수정된 주문 합계';run("workshopSubmit('publish')");assert.e
 assert.match(run('cases()'),/수정된 주문 합계/);assert.equal(run('linkedCasesFor("SHOP")'),1);
 run("workspaceMode='demo';page='dashboard';render()");assert.equal(node('#demo-navigation').hidden,false);assert.equal(node('#tc-navigation').hidden,true);
 run("workspaceMode='tc';page='tc-hub';render()");assert.equal(node('#demo-navigation').hidden,true);assert.equal(node('#tc-navigation').hidden,false);
-const html=fs.readFileSync(__dirname+'/index.html','utf8');assert.match(html,/id="workspace-select"/);assert.match(html,/id="tc-nav"/);assert.doesNotMatch(html,/data-page="workshop"[^\n]*TC 작성 연습/);
+const html=fs.readFileSync(__dirname+'/index.html','utf8');assert.match(html,/id="workspace-trigger"/);assert.match(html,/id="tc-nav"/);assert.doesNotMatch(html,/data-page="workshop"[^\n]*TC 작성 연습/);
 console.log('PASS stage9 14 checks: TC hub, new, draft, publish, edit, sync, navigation, version');

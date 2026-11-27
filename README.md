@@ -1,3 +1,20 @@
+# QABoard v1.0.0 — Workspace Switch & TC Results
+
+## 변경 내역
+- Demo Workspace → **Workspace** 명칭 변경
+- 흰색 네이티브 선택 목록을 그린/블루 테마의 사용자 정의 드롭다운으로 변경
+- Test Case 전용 페이지는 별도 하늘색/파란색 테마 적용
+- 중복된 사이드바 **새 TC 작성** 제거, `＋ Add test case` 버튼 유지
+- TC 목록의 **보기 / 수정**에서 최근 결과(`Not Run`, `Pass`, `Fail`, `Blocked`) 수정 가능
+- 편집한 최근 결과는 TC 전용 목록, 기존 Test Cases 및 현지 브라우저 저장소에 반영
+- **Test Run 실행 이력은 별도**이며 TC 최근 결과 편집 시 과거 Test Run 결과를 덮어쓰지 않음
+
+## 주의
+- 기존 `qaboard-demo` localStorage 데이터는 삭제하거나 초기화하지 않습니다.
+- 배포 전 Settings & Backup에서 JSON 백업을 권장합니다.
+- 데이터는 브라우저에 저장되며, 다른 기기나 사용자에게 자동 동기화되지 않습니다.
+- 개인정보 입력은 하지 마세요.
+
 # QABoard v0.9.1 — navigation bugfix
 
 - Fixed Demo Workspace navigation for **Reports** and **Settings & Backup**.

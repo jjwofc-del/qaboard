@@ -37,6 +37,7 @@ try {
 } catch (_error) {localDataWarning=true;}
 let page='dashboard';
 let workspaceMode='demo';
+let workspaceMenuOpen=false;
 let selectedHubEditCaseId=null;
 let selectedProjectKey=null;
 let selectedCaseId=null;
@@ -119,7 +120,7 @@ function tcHub(){
  <div class="tc-hub-toolbar"><input id="tc-hub-search" class="search" placeholder="TC ID, 제목, 스위트 검색" value="${esc(tcHubQuery)}" aria-label="TC 검색"/><select id="tc-hub-project" class="filter" aria-label="프로젝트 필터"><option value="">전체 프로젝트</option>${data.projects.map(p=>`<option value="${esc(p.key)}" ${tcHubProject===p.key?'selected':''}>${esc(p.name)}</option>`).join('')}</select><span>${filtered.length}개 표시</span></div>
  <section class="panel tc-sheet"><div class="panel-head"><h3>Test Case 목록</h3><span>스프레드시트 보기 · 가로 스크롤 가능</span></div><div class="table-wrap"><table class="tc-sheet-table"><thead><tr><th>TC ID</th><th>프로젝트</th><th>스위트</th><th>테스트 케이스 제목</th><th>우선순위</th><th>사전 조건</th><th>테스트 단계</th><th>예상 결과</th><th>최근 결과</th><th>관리</th></tr></thead><tbody>${filtered.length?filtered.map(c=>`<tr><td class="case-id">${esc(c.id)}</td><td>${esc(projectLabel(c.project))}</td><td>${esc(c.suite)}</td><td class="tc-title-cell">${esc(c.title)}</td><td>${pill(c.priority)}</td><td class="tc-long-cell" title="${esc(c.preconditions||'')}">${esc(c.preconditions||'—')}</td><td class="tc-long-cell" title="${esc(c.steps||'')}">${esc(c.steps||'—')}</td><td class="tc-long-cell" title="${esc(c.expected||'')}">${esc(c.expected||'—')}</td><td>${pill(c.status||'Not Run')}</td><td><button class="btn" type="button" data-tc-hub-edit="${esc(c.id)}">보기 / 수정</button></td></tr>`).join(''):'<tr><td colspan="10" class="empty-note">표시할 테스트 케이스가 없습니다.</td></tr>'}</tbody></table></div></section>
  ${drafts.length?`<section class="panel table-panel"><div class="panel-head"><h3>임시 저장 중인 TC</h3><span>${drafts.length}개</span></div>${drafts.map(d=>`<div class="tc-draft-row"><div><strong>${esc(d.title)}</strong><small>${esc(d.id)} · ${esc(d.suite)}</small></div><button class="btn" type="button" data-workshop-edit="${esc(d.id)}">이어 작성</button></div>`).join('')}</section>`:''}
- <p class="analytics-note">등록한 TC는 Demo Workspace의 Test Cases에도 표시됩니다. 데이터는 현재 브라우저에만 저장되며 다른 사용자에게 자동 공유되지 않습니다.</p>`;
+ <p class="analytics-note">등록한 TC는 Workspace의 Test Cases에도 표시됩니다. 데이터는 현재 브라우저에만 저장되며 다른 사용자에게 자동 공유되지 않습니다.</p>`;
 }
 function openTcForm(id=null,draftId=null){selectedHubEditCaseId=id;selectedWorkshopDraftId=draftId;page='workshop';render()}
 // TC Workshop: browser-local authoring area. Publishing inserts a real local Test Case.
@@ -136,6 +137,7 @@ function workshop(){
  <label class="field"><span>테스트 스위트 *</span><input name="suite" maxlength="80" required placeholder="예: 장바구니" value="${esc(draft.suite||'')}" /></label>
  <label class="field"><span>테스트 케이스 제목 *</span><input name="title" maxlength="100" required placeholder="예: 수량 변경 시 합계가 갱신되는지 확인" value="${esc(draft.title||'')}" /></label>
  <label class="field"><span>우선순위</span><select name="priority">${['Low','Medium','High'].map(v=>`<option ${v===(draft.priority||'Medium')?'selected':''}>${v}</option>`).join('')}</select></label>
+ ${selectedHubEditCaseId?`<label class="field"><span>최근 결과</span><select name="status" aria-label="최근 결과 변경">${['Not Run','Pass','Fail','Blocked'].map(v=>`<option value="${v}" ${v===(draft.status||'Not Run')?'selected':''}>${v}</option>`).join('')}</select></label><p class="tc-result-hint">여기서 수정한 최근 결과는 TC 목록에 반영됩니다. 기존 Test Run의 실행 이력은 변경하지 않습니다.</p>`:''}
  <label class="field"><span>사전 조건</span><textarea name="preconditions" maxlength="1000" rows="3" placeholder="예: 샘플 상품이 장바구니에 담겨 있다">${esc(draft.preconditions||'')}</textarea></label>
  <label class="field"><span>테스트 단계 *</span><textarea name="steps" maxlength="2000" rows="5" required placeholder="1. 장바구니 열기&#10;2. 상품 수량을 2로 변경">${esc(draft.steps||'')}</textarea></label>
  <label class="field"><span>예상 결과 *</span><textarea name="expected" maxlength="1000" rows="3" required placeholder="총 결제 금액이 수량에 맞게 갱신되어 표시된다">${esc(draft.expected||'')}</textarea></label>
@@ -408,7 +410,12 @@ function updateNavigationCounts(){
  const ids=[['#nav-project-count',data.projects.length],['#nav-case-count',data.cases.length],['#nav-bug-count',data.bugs.length]];
  for(const [id,n] of ids){const node=$(id);if(node)node.textContent=String(n)}
 }
-function render(){const pages={dashboard,projects,cases,runs,bugs,reports,settings,workshop,'tc-hub':tcHub};$('#demo-navigation').hidden=workspaceMode!=='demo';$('#tc-navigation').hidden=workspaceMode!=='tc';$('#workspace-select').value=workspaceMode;$('#page-content').innerHTML=page==='projects'&&selectedProjectKey?projectDetail():page==='cases'&&selectedCaseId?caseDetail():page==='runs'&&selectedRunId?runDetail():page==='bugs'&&selectedBugId?bugDetail():pages[page]();$('#crumb').textContent=({dashboard:'Dashboard',projects:'Projects',cases:'Test Cases',runs:'Test Runs',bugs:'Bug Management',reports:'Reports',settings:'Settings & Backup',workshop:'TC 작성','tc-hub':'TC 목록'})[page];document.querySelectorAll('.nav-item').forEach(b=>b.classList.toggle('active',b.dataset.page===page));const tcCount=$('#nav-tc-hub-count');if(tcCount)tcCount.textContent=String(data.cases.length);updateNavigationCounts();bindPage()}
+function render(){const pages={dashboard,projects,cases,runs,bugs,reports,settings,workshop,'tc-hub':tcHub};$('#demo-navigation').hidden=workspaceMode!=='demo';$('#tc-navigation').hidden=workspaceMode!=='tc';document.body?.classList?.toggle('tc-mode',workspaceMode==='tc');
+ const workspaceLabel=$('#workspace-current');if(workspaceLabel)workspaceLabel.textContent=workspaceMode==='tc'?'Test Case':'Workspace';
+ const workspaceTrigger=$('#workspace-trigger');const workspaceOptions=$('#workspace-options');
+ if(workspaceTrigger)workspaceTrigger?.setAttribute?.('aria-expanded',String(workspaceMenuOpen));
+ if(workspaceOptions)workspaceOptions.hidden=!workspaceMenuOpen;
+ document.querySelectorAll('.workspace-option').forEach(opt=>opt.setAttribute('aria-selected',String(opt.dataset.workspace===workspaceMode)));$('#page-content').innerHTML=page==='projects'&&selectedProjectKey?projectDetail():page==='cases'&&selectedCaseId?caseDetail():page==='runs'&&selectedRunId?runDetail():page==='bugs'&&selectedBugId?bugDetail():pages[page]();$('#crumb').textContent=({dashboard:'Dashboard',projects:'Projects',cases:'Test Cases',runs:'Test Runs',bugs:'Bug Management',reports:'Reports',settings:'Settings & Backup',workshop:'TC 작성','tc-hub':'TC 목록'})[page];document.querySelectorAll('.nav-item').forEach(b=>b.classList.toggle('active',b.dataset.page===page));const tcCount=$('#nav-tc-hub-count');if(tcCount)tcCount.textContent=String(data.cases.length);updateNavigationCounts();bindPage()}
 function toast(msg){let t=$('#toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2200)}
 function openModal(type){let cfg={
  project:{title:'새 프로젝트 만들기',desc:'가상의 QA 프로젝트를 추가합니다.',fields:[['name','프로젝트 이름','text','예: Payment Web QA'],['key','프로젝트 키','text','예: PAY'],['release','릴리즈','text','예: v1.0.0']]},
@@ -524,7 +531,16 @@ function filterBugs(){
  $('#bug-rows').innerHTML=bugRows(filtered);$('#bug-result-count').textContent=filtered.length+' bugs';
 }
 
-$('#workspace-select').addEventListener('change',e=>{workspaceMode=e.target.value==='tc'?'tc':'demo';page=workspaceMode==='tc'?'tc-hub':'dashboard';selectedHubEditCaseId=null;selectedWorkshopDraftId=null;selectedProjectKey=null;selectedCaseId=null;selectedRunId=null;selectedBugId=null;render()});
+function closeWorkspaceMenu(){workspaceMenuOpen=false;$('#workspace-options').hidden=true;$('#workspace-trigger').setAttribute('aria-expanded','false')}
+function activateWorkspace(mode){
+ workspaceMode=mode==='tc'?'tc':'demo';workspaceMenuOpen=false;
+ page=workspaceMode==='tc'?'tc-hub':'dashboard';
+ selectedHubEditCaseId=null;selectedWorkshopDraftId=null;selectedProjectKey=null;selectedCaseId=null;selectedRunId=null;selectedBugId=null;render();
+}
+$('#workspace-trigger').addEventListener('click',()=>{workspaceMenuOpen=!workspaceMenuOpen;$('#workspace-options').hidden=!workspaceMenuOpen;$('#workspace-trigger').setAttribute('aria-expanded',String(workspaceMenuOpen))});
+$('#workspace-options').addEventListener('click',e=>{const choice=e.target.closest('[data-workspace]');if(choice)activateWorkspace(choice.dataset.workspace)});
+document.addEventListener('click',e=>{if(workspaceMenuOpen&&!e.target.closest('#workspace-switch'))closeWorkspaceMenu()});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&workspaceMenuOpen){closeWorkspaceMenu();$('#workspace-trigger').focus()}if(workspaceMenuOpen&&['ArrowDown','ArrowUp'].includes(e.key)&&e.target.closest('#workspace-switch')){e.preventDefault();const options=[...document.querySelectorAll('.workspace-option')];const i=options.indexOf(document.activeElement);options[(i+(e.key==='ArrowDown'?1:-1)+options.length)%options.length]?.focus()}if(workspaceMenuOpen&&(e.key==='Enter'||e.key===' ')&&e.target.id==='workspace-trigger'){e.preventDefault();document.querySelector('.workspace-option[aria-selected="true"]')?.focus()}});
 $('#tc-nav').addEventListener('click',e=>{const btn=e.target.closest('[data-page]');if(!btn)return;if(btn.dataset.page==='workshop')openTcForm();else{selectedHubEditCaseId=null;selectedWorkshopDraftId=null;page='tc-hub';render()}});
 // Route ALL Demo Workspace navigation buttons, including Reports and Settings & Backup.
 // These two buttons are siblings of #navigation, but children of #demo-navigation.
