@@ -24,7 +24,17 @@ const seed = {
   {id:'RUN-006',name:'Admin Portal · Sanity',project:'ADMIN',date:'2025-02-14',passed:16,failed:1,blocked:1,status:'Completed'}
  ]
 };
-let data = JSON.parse(localStorage.getItem('qaboard-demo')||'null') || seed;
+// Invalid local data must never crash the application; do not overwrite it automatically.
+let data=JSON.parse(JSON.stringify(seed));
+let localDataWarning=false;
+try {
+ const stored=localStorage.getItem('qaboard-demo');
+ if(stored){
+  const parsed=JSON.parse(stored);
+  if(parsed&&typeof parsed==='object'&&!Array.isArray(parsed)&&['projects','cases','runs','bugs'].every(k=>Array.isArray(parsed[k])))data=parsed;
+  else localDataWarning=true;
+ }
+} catch (_error) {localDataWarning=true;}
 let page='dashboard';
 let selectedProjectKey=null;
 let selectedCaseId=null;
@@ -265,7 +275,75 @@ function reportRows(){const a=analyticsFor(analyticsProject);return a.projects.m
 function csvValue(value){let s=String(value??'');if(/^[\s]*[=+@\-\t\r]/.test(s))s="'"+s;return '"'+s.replace(/"/g,'""')+'"'}
 function reportCSV(){const head=['project_key','project_name','test_cases','tracked_runs','pass','fail','blocked','not_run','pass_rate','open_bugs'];return [head,...reportRows()].map(r=>r.map(csvValue).join(',')).join('\r\n')+'\r\n'}
 function exportReport(){const blob=new Blob(['\uFEFF',reportCSV()],{type:'text/csv;charset=utf-8;'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='qaboard-quality-report.csv';document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);toast('CSV 리포트를 저장했습니다.')}
-function render(){const pages={dashboard,projects,cases,runs,bugs,reports};$('#page-content').innerHTML=page==='projects'&&selectedProjectKey?projectDetail():page==='cases'&&selectedCaseId?caseDetail():page==='runs'&&selectedRunId?runDetail():page==='bugs'&&selectedBugId?bugDetail():pages[page]();$('#crumb').textContent=({dashboard:'Dashboard',projects:'Projects',cases:'Test Cases',runs:'Test Runs',bugs:'Bug Management',reports:'Reports'})[page];document.querySelectorAll('.nav-item').forEach(b=>b.classList.toggle('active',b.dataset.page===page));bindPage()}
+// Stage 7: local-only backup and restore. No data is uploaded to a server.
+const BACKUP_FORMAT='qaboard-backup';
+const BACKUP_VERSION=1;
+function validateBackup(payload){
+ if(!payload||typeof payload!=='object'||Array.isArray(payload)||payload.format!==BACKUP_FORMAT||payload.version!==BACKUP_VERSION)return {ok:false,why:'지원하지 않는 백업 형식입니다.'};
+ const d=payload.data;
+ if(!d||typeof d!=='object'||Array.isArray(d))return {ok:false,why:'백업 데이터 구조가 올바르지 않습니다.'};
+ const keys=['projects','cases','runs','bugs'];
+ if(!keys.every(k=>Array.isArray(d[k])&&d[k].length<=50000&&d[k].every(x=>x&&typeof x==='object'&&!Array.isArray(x))))return {ok:false,why:'프로젝트/테스트/버그 배열을 확인해 주세요.'};
+ const hasUnique=(items,key)=>items.every(item=>typeof item[key]==='string'&&item[key].length>0&&item[key].length<=100)&&new Set(items.map(item=>item[key])).size===items.length;
+ if(!hasUnique(d.projects,'key')||!hasUnique(d.cases,'id')||!hasUnique(d.runs,'id')||!hasUnique(d.bugs,'id'))return {ok:false,why:'필수 ID가 없거나 중복되었습니다.'};
+ if(d.runs.some(r=>r.results!==undefined&&(!Array.isArray(r.results)||r.results.length>50000||r.results.some(x=>!x||typeof x.caseId!=='string'||!['Not Run','Pass','Fail','Blocked'].includes(x.result)))))return {ok:false,why:'테스트 실행 결과 형식이 올바르지 않습니다.'};
+ if(d.projects.some(p=>typeof p.name!=='string')||d.cases.some(c=>typeof c.title!=='string')||d.bugs.some(b=>typeof b.title!=='string'))return {ok:false,why:'필수 이름/제목 값이 올바르지 않습니다.'};
+ return {ok:true,counts:keys.map(k=>d[k].length)};
+}
+function backupPayload(){return {format:BACKUP_FORMAT,version:BACKUP_VERSION,exportedAt:new Date().toISOString(),data};}
+function backupDownload(){
+ const body=JSON.stringify(backupPayload(),null,2);
+ const url=URL.createObjectURL(new Blob([body],{type:'application/json;charset=utf-8'}));
+ const a=document.createElement('a');a.href=url;a.download='qaboard-backup-'+new Date().toISOString().slice(0,10)+'.json';document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
+ toast('JSON 백업 파일을 다운로드했습니다.');
+}
+function openRestoreDialog(payload){
+ const checked=validateBackup(payload);
+ if(!checked.ok){toast(checked.why);return}
+ const counts=checked.counts;
+ $('#modal-root').innerHTML=`<div class="modal-backdrop"><div class="modal" role="dialog" aria-modal="true" aria-label="백업 복원 확인"><h2>백업을 복원할까요?</h2><p>현재 브라우저의 모든 QABoard 데이터가 백업 내용으로 교체됩니다. 복원 전에 현재 데이터를 먼저 백업해 주세요.</p><p>프로젝트 ${counts[0]} · 케이스 ${counts[1]} · 실행 ${counts[2]} · 버그 ${counts[3]}</p><div class="modal-actions"><button class="btn" type="button" data-action="close-modal">취소</button><button class="btn primary" type="button" data-action="confirm-restore">백업으로 교체</button></div></div></div>`;
+ const btn=$('[data-action="confirm-restore"]');
+ btn.addEventListener('click',()=>{
+  try{localStorage.setItem('qaboard-demo',JSON.stringify(payload.data));}
+  catch(_e){toast('저장 공간 부족 또는 브라우저 제한으로 복원하지 못했습니다.');return;}
+  data=payload.data;localDataWarning=false;
+  page='dashboard';selectedProjectKey=null;selectedCaseId=null;selectedRunId=null;selectedBugId=null;analyticsProject='';analyticsDrillProject='';
+  $('#modal-root').replaceChildren();render();toast('백업을 복원했습니다.');
+ });
+}
+async function restoreFromFile(file){
+ if(!file)return;
+ if(file.size>5*1024*1024){toast('백업 파일은 5MB 이하여야 합니다.');return;}
+ try{const parsed=JSON.parse(await file.text());openRestoreDialog(parsed);}
+ catch(_e){toast('JSON 파일을 읽을 수 없습니다.');}
+}
+function settings(){
+ const counts=[data.projects.length,data.cases.length,data.runs.length,data.bugs.length];
+ return `${heading('DEMO DATA & PRIVACY','Settings & Backup','내 브라우저의 데모 데이터를 관리하고 안전하게 내보내거나 복원합니다.')}
+ <div class="dashboard-grid"><div class="panel"><div class="panel-head"><h3>Local data backup</h3><span>JSON · 로컬 처리</span></div>
+ <p class="settings-copy">현재 프로젝트 ${counts[0]}개 · 테스트 케이스 ${counts[1]}개 · 테스트 실행 ${counts[2]}개 · 버그 ${counts[3]}개</p>
+ <p class="settings-copy">전체 데이터를 JSON 파일로 저장할 수 있어요. CSV 품질 리포트와 달리 나중에 QABoard로 복원할 수 있습니다.</p>
+ <div class="settings-actions"><button type="button" class="btn primary" data-action="backup-export">↓ Backup JSON</button><button type="button" class="btn" data-action="backup-import">↑ Restore JSON</button></div></div>
+ <div class="panel"><div class="panel-head"><h3>Privacy & limitations</h3><span>Portfolio demo</span></div>
+ <p class="settings-copy">별도의 로그인·서버 DB·파일 업로드 API는 없습니다. 작성 내용은 사용 중인 브라우저의 localStorage에 저장됩니다.</p>
+ <p class="settings-copy">실제 이름, 이메일, 전화번호, 주문 내역, 고객정보, 비밀키 등은 입력하지 마세요. 내보낸 백업에는 입력한 텍스트가 그대로 포함됩니다.</p>
+ <p class="settings-copy">브라우저 저장 데이터는 기기 또는 브라우저가 달라지면 공유되지 않으며, 삭제될 수 있습니다. 중요한 데모 작업은 JSON 백업을 보관하세요.</p></div></div>
+ <div class="panel table-panel"><div class="panel-head"><h3>Reset demo data</h3><span>되돌릴 수 없는 작업</span></div><p class="settings-copy">현재 브라우저 데이터를 최초 예시 데이터로 되돌립니다. 백업하지 않은 수정 내역은 사라집니다.</p><button type="button" class="btn danger-outline" data-action="reset-demo">데모 데이터 초기화</button></div>
+ ${localDataWarning?'<p class="settings-warning">기존 저장 데이터가 손상되어 기본 데모로 표시 중입니다. 초기화하기 전 브라우저 저장 데이터를 별도로 확인해 주세요.</p>':''}`;
+}
+function resetConfirm(){
+ $('#modal-root').innerHTML=`<div class="modal-backdrop"><div class="modal" role="dialog" aria-modal="true" aria-label="데모 초기화 확인"><h2>정말 초기화할까요?</h2><p>모든 프로젝트, 테스트 케이스, 실행 결과 및 버그가 최초 샘플 데이터로 바뀝니다. 먼저 JSON 백업을 내려받는 것을 권장합니다.</p><div class="modal-actions"><button class="btn" data-action="close-modal">취소</button><button class="btn danger-outline" data-action="confirm-reset">모든 데이터 초기화</button></div></div></div>`;
+}
+function resetDemo(){
+ try{localStorage.removeItem('qaboard-demo');}catch(_e){toast('브라우저 저장 데이터에 접근할 수 없습니다.');return}
+ data=JSON.parse(JSON.stringify(seed));localDataWarning=false;page='dashboard';selectedProjectKey=null;selectedCaseId=null;selectedRunId=null;selectedBugId=null;analyticsProject='';analyticsDrillProject='';
+ $('#modal-root').replaceChildren();render();toast('최초 데모 데이터로 초기화했습니다.');
+}
+function updateNavigationCounts(){
+ const ids=[['#nav-project-count',data.projects.length],['#nav-case-count',data.cases.length],['#nav-bug-count',data.bugs.length]];
+ for(const [id,n] of ids){const node=$(id);if(node)node.textContent=String(n)}
+}
+function render(){const pages={dashboard,projects,cases,runs,bugs,reports,settings};$('#page-content').innerHTML=page==='projects'&&selectedProjectKey?projectDetail():page==='cases'&&selectedCaseId?caseDetail():page==='runs'&&selectedRunId?runDetail():page==='bugs'&&selectedBugId?bugDetail():pages[page]();$('#crumb').textContent=({dashboard:'Dashboard',projects:'Projects',cases:'Test Cases',runs:'Test Runs',bugs:'Bug Management',reports:'Reports',settings:'Settings & Backup'})[page];document.querySelectorAll('.nav-item').forEach(b=>b.classList.toggle('active',b.dataset.page===page));updateNavigationCounts();bindPage()}
 function toast(msg){let t=$('#toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2200)}
 function openModal(type){let cfg={
  project:{title:'새 프로젝트 만들기',desc:'가상의 QA 프로젝트를 추가합니다.',fields:[['name','프로젝트 이름','text','예: Payment Web QA'],['key','프로젝트 키','text','예: PAY'],['release','릴리즈','text','예: v1.0.0']]},
@@ -325,6 +403,10 @@ document.addEventListener('click',e=>{
  if(action){const a=action.dataset.action;
   if(a==='close-modal'){$('#modal-root').replaceChildren();return}
   if(a==='export-report'){exportReport();return}
+  if(a==='backup-export'){backupDownload();return}
+  if(a==='backup-import'){$('#backup-file').value='';$('#backup-file').click();return}
+  if(a==='reset-demo'){resetConfirm();return}
+  if(a==='confirm-reset'){resetDemo();return}
   if(a==='edit-project'){openEditProject();return}
   if(a==='edit-bug'){openEditBug();return}
   if(a==='delete-bug'){openDeleteBug();return}
@@ -336,6 +418,7 @@ document.addEventListener('click',e=>{
   if(a.startsWith('new-')){if(a==='new-run')selectedRunId=null;openModal(a.slice(4));return}
  }
 });
+document.querySelector('#backup-file').addEventListener('change',e=>restoreFromFile(e.target.files?.[0]));
 document.addEventListener('keydown',e=>{
  if((e.key==='Enter'||e.key===' ')&&e.target.matches('[data-stat-action]')){e.preventDefault();openStats(e.target.dataset.statAction)}
  if(e.key==='Escape'&&$('#modal-root').children.length){$('#modal-root').replaceChildren()}

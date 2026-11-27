@@ -1,0 +1,26 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const code=fs.readFileSync(__dirname+'/src/app.js','utf8');
+const nodes={};const el=id=>nodes[id]??=( {innerHTML:'',textContent:'',value:'',children:[],classList:{add(){},remove(){},toggle(){}},addEventListener(){},replaceChildren(){this.innerHTML='';this.children=[]}} );
+let saved=null;
+const ls={getItem:()=>saved,setItem:(k,v)=>{saved=v},removeItem:()=>{saved=null}};
+const ctx=vm.createContext({document:{querySelector:el,querySelectorAll:()=>[],addEventListener(){}},localStorage:ls,setTimeout(){},Date,console});vm.runInContext(code,ctx);
+const run=expr=>vm.runInContext(expr,ctx);
+const ok=(label,expr)=>{assert(run(expr),label);console.log('PASS',label)};
+ok('renders settings page','settings().includes("Backup JSON") && settings().includes("Restore JSON")');
+ok('backup includes full data','backupPayload().format==="qaboard-backup" && backupPayload().version===1 && backupPayload().data.bugs.length===5');
+ok('valid backup accepted','validateBackup(backupPayload()).ok');
+ok('rejects arbitrary JSON','!validateBackup({hello:"world"}).ok');
+ok('rejects invalid version','!validateBackup({...backupPayload(),version:99}).ok');
+ok('rejects duplicate project keys','!validateBackup({...backupPayload(),data:{...data,projects:[data.projects[0],data.projects[0]]}}).ok');
+ok('rejects invalid test result','!validateBackup({...backupPayload(),data:{...data,runs:[{id:"RUN-900",results:[{caseId:"TC-22",result:"HACK"}]}]}}).ok');
+ok('backup has four collections','["projects","cases","runs","bugs"].every(k=>Array.isArray(backupPayload().data[k]))');
+run("data.projects.push({key:'TST',name:'Demo'})");
+ok('local project count reflects changes','data.projects.length===4');
+run("updateNavigationCounts()");
+assert.equal(el('#nav-project-count').textContent,'4');console.log('PASS sidebar count updated');
+run('resetDemo()');
+ok('reset returns original demo content','data.projects.length===3 && data.bugs.length===5 && data.cases.length===5');
+assert.equal(saved,null);console.log('PASS local data cleared during reset');
+// saved data compatibility
+assert.equal(fs.readFileSync(__dirname+'/index.html','utf8').includes('src/app.js?v=0.7.0'),true);console.log('PASS cache bust version');
+console.log('STAGE 7 TESTS COMPLETE');
