@@ -28,6 +28,7 @@ let data = JSON.parse(localStorage.getItem('qaboard-demo')||'null') || seed;
 let page='dashboard';
 let selectedProjectKey=null;
 let selectedCaseId=null;
+let selectedRunId=null;
 let initialCaseStatus='';
 let initialBugStatus='';
 let initialProjectStatus='';
@@ -91,11 +92,37 @@ function openEditCase(){
  });
 }
 
-function runs(){return `${heading('TEST MANAGEMENT','Test Runs','테스트 실행 단위별 결과와 진행 상태를 추적합니다.','<button class="btn primary" data-action="new-run">＋ Create test run</button>')} ${stats([{label:'Total runs',value:data.runs.length,icon:'▷',foot:'등록된 테스트 실행'},{label:'Completed',value:data.runs.filter(r=>r.status==='Completed').length,icon:'✓',foot:'완료된 실행'},{label:'Passed checks',value:data.runs.reduce((a,r)=>a+r.passed,0),icon:'◉',foot:'누적 통과 건수'},{label:'Failed checks',value:data.runs.reduce((a,r)=>a+r.failed,0),icon:'!',foot:'누적 실패 건수'}])}<div class="panel"><div class="table-wrap"><table><thead><tr><th>RUN ID</th><th>TEST RUN</th><th>PROJECT</th><th>DATE</th><th>PASS / FAIL / BLOCKED</th><th>STATUS</th></tr></thead><tbody>${data.runs.map(r=>`<tr><td class="case-id">${r.id}</td><td class="project-name">${r.name}</td><td>${r.project}</td><td>${r.date}</td><td><span class="positive">${r.passed}</span> / <span style="color:#c85c5c">${r.failed}</span> / ${r.blocked}</td><td>${pill(r.status)}</td></tr>`).join('')}</tbody></table></div></div>`}
+// v0.4.0: test-run results are snapshots of linked cases at run creation time.
+// Historical sample runs without `results` remain visible as read-only legacy summaries.
+const runCounts=run=>Array.isArray(run.results)?{
+ passed:run.results.filter(x=>x.result==='Pass').length,
+ failed:run.results.filter(x=>x.result==='Fail').length,
+ blocked:run.results.filter(x=>x.result==='Blocked').length,
+ notRun:run.results.filter(x=>x.result==='Not Run').length
+}:{passed:run.passed||0,failed:run.failed||0,blocked:run.blocked||0,notRun:null};
+const runState=run=>!Array.isArray(run.results)?run.status:
+ (run.results.length>0&&run.results.every(x=>x.result!=='Not Run')?'Completed':'In Progress');
+function runs(){return `${heading('TEST MANAGEMENT','Test Runs','프로젝트별 테스트 실행을 생성하고 각 케이스의 결과를 기록합니다.','<button class="btn primary" data-action="new-run">＋ Create test run</button>')}
+ ${stats([{label:'Total runs',value:data.runs.length,icon:'▷',foot:'등록된 테스트 실행'},{label:'Completed',value:data.runs.filter(r=>runState(r)==='Completed').length,icon:'✓',foot:'완료된 실행'},{label:'Passed checks',value:data.runs.reduce((a,r)=>a+runCounts(r).passed,0),icon:'◉',foot:'누적 통과 건수'},{label:'Failed checks',value:data.runs.reduce((a,r)=>a+runCounts(r).failed,0),icon:'!',foot:'누적 실패 건수'}])}
+ <div class="panel"><div class="table-wrap"><table><thead><tr><th>RUN ID</th><th>TEST RUN</th><th>PROJECT</th><th>DATE</th><th>PASS / FAIL / BLOCKED</th><th>STATUS</th><th>DETAILS</th></tr></thead><tbody>${data.runs.map(r=>{const n=runCounts(r);return `<tr><td class="case-id">${esc(r.id)}</td><td class="project-name">${esc(r.name)}</td><td>${esc(r.project)}</td><td>${esc(r.date)}</td><td><span class="positive">${n.passed}</span> / <span style="color:#c85c5c">${n.failed}</span> / ${n.blocked}</td><td>${pill(runState(r))}</td><td><button class="btn" data-run-id="${esc(r.id)}">상세 보기 →</button></td></tr>`}).join('')}</tbody></table></div></div>`}
+function runDetail(){
+ const run=data.runs.find(r=>r.id===selectedRunId);
+ if(!run){selectedRunId=null;return runs()}
+ const n=runCounts(run),isLegacy=!Array.isArray(run.results);
+ return `${heading('TEST RUN DETAILS',esc(run.id)+' · '+esc(run.name),'선택한 테스트 실행의 케이스별 결과를 확인하고 기록합니다.')}
+ <button class="btn" data-action="back-runs" style="margin-bottom:16px">← 테스트 실행 목록으로</button>
+ <div class="panel" style="margin-bottom:16px"><div class="panel-head"><h3>Run information</h3>${pill(runState(run))}</div>
+ <div class="detail-row"><span>프로젝트</span><strong>${esc(projectLabel(run.project))} (${esc(run.project)})</strong></div>
+ <div class="detail-row"><span>실행 날짜</span><strong>${esc(run.date)}</strong></div>
+ <div class="detail-row"><span>Pass / Fail / Blocked</span><strong>${n.passed} / ${n.failed} / ${n.blocked}</strong></div>
+ ${!isLegacy?`<div class="detail-row"><span>Not Run</span><strong>${n.notRun}</strong></div>`:''}</div>
+ ${isLegacy?`<div class="panel"><h3>이전 버전 샘플 실행</h3><p class="muted">이 실행은 기존 샘플 통계만 있고 케이스별 결과 기록이 없습니다. 원본 통계를 보존하기 위해 읽기 전용으로 표시해요. 케이스별 기록은 새 Test Run을 만들어 시작해 주세요.</p></div>`:
+ `<div class="panel"><div class="panel-head"><h3>Test results</h3><span>${run.results.length} cases · 프로젝트 연결 당시의 목록</span></div><div class="table-wrap"><table><thead><tr><th>CASE ID</th><th>TEST CASE</th><th>RESULT</th><th>CHANGE RESULT</th></tr></thead><tbody>${run.results.map(r=>`<tr><td class="case-id">${esc(r.caseId)}</td><td class="project-name">${esc(r.title)}</td><td>${r.result==='Not Run'?'<span class="status low">Not Run</span>':pill(r.result)}</td><td><select class="filter run-result" data-run-id="${esc(run.id)}" data-case-id="${esc(r.caseId)}" aria-label="${esc(r.caseId)} 결과 변경">${['Not Run','Pass','Fail','Blocked'].map(v=>`<option value="${v}" ${r.result===v?'selected':''}>${v}</option>`).join('')}</select></td></tr>`).join('')}</tbody></table></div></div>`}`;
+}
 function bugs(){return `${heading('ISSUE TRACKING','Bug Management','발견된 결함을 기록하고 수정 상태를 추적합니다.','<button class="btn primary" data-action="new-bug">＋ Create bug</button>')}<div class="toolbar"><input class="search" id="bug-search" placeholder="⌕  버그 제목 또는 ID 검색..." /><select class="filter" id="bug-filter"><option value="">All status</option><option ${initialBugStatus==='active'?'selected':''} value="active">Open + In Progress</option><option>Open</option><option>In Progress</option><option>Resolved</option><option>Closed</option></select></div><div class="panel"><div class="table-wrap"><table><thead><tr><th>BUG ID</th><th>SUMMARY</th><th>PROJECT</th><th>PRIORITY</th><th>ASSIGNEE</th><th>STATUS</th><th>CHANGE</th></tr></thead><tbody id="bug-rows">${bugRows(initialBugStatus==='active'?data.bugs.filter(b=>['Open','In Progress'].includes(b.status)):data.bugs)}</tbody></table></div></div>`}
 function bugRows(rows){return rows.length?rows.map(b=>`<tr><td class="bug-id">${b.id}</td><td class="project-name">${b.title}</td><td>${b.project}</td><td>${pill(b.priority)}</td><td>${b.owner}</td><td>${pill(b.status)}</td><td><select class="filter bug-status" data-id="${b.id}">${['Open','In Progress','Resolved','Closed'].map(s=>`<option ${s===b.status?'selected':''}>${s}</option>`).join('')}</select></td></tr>`).join(''):'<tr><td colspan="7" class="empty-note">검색 결과가 없습니다.</td></tr>'}
 function reports(){let passed=data.cases.filter(c=>c.status==='Pass').length,failed=data.cases.filter(c=>c.status==='Fail').length,blocked=data.cases.filter(c=>c.status==='Blocked').length;return `${heading('INSIGHTS','Reports','테스트 결과와 버그 현황을 요약합니다.')} ${stats([{label:'Pass',value:passed,icon:'✓',foot:'통과한 테스트 케이스'},{label:'Fail',value:failed,icon:'!',foot:'실패한 테스트 케이스'},{label:'Blocked',value:blocked,icon:'Ⅱ',foot:'실행이 차단된 케이스'},{label:'Pass rate',value:Math.round(passed/Math.max(data.cases.length,1)*100)+'%',icon:'◉',foot:'전체 케이스 대비 통과율'}])}<div class="dashboard-grid"><div class="panel"><div class="panel-head"><h3>Test result distribution</h3><span>Sample data</span></div><div class="chart-bars">${[['Pass',passed],['Fail',failed],['Blocked',blocked]].map(([n,v])=>`<div class="chart-col"><em>${v}</em><div class="chart-bar" style="height:${Math.max(5,v/Math.max(data.cases.length,1)*100)}%"></div><small>${n}</small></div>`).join('')}</div></div><div class="panel"><div class="panel-head"><h3>Bug status summary</h3><span>All projects</span></div>${['Open','In Progress','Resolved','Closed'].map(s=>`<div class="progress-row"><strong>${s}</strong><div class="progress-track"><div class="progress-fill" style="width:${data.bugs.filter(b=>b.status===s).length/Math.max(data.bugs.length,1)*100}%"></div></div><em>${data.bugs.filter(b=>b.status===s).length}</em></div>`).join('')}</div></div>`}
-function render(){const pages={dashboard,projects,cases,runs,bugs,reports};$('#page-content').innerHTML=page==='projects'&&selectedProjectKey?projectDetail():page==='cases'&&selectedCaseId?caseDetail():pages[page]();$('#crumb').textContent=({dashboard:'Dashboard',projects:'Projects',cases:'Test Cases',runs:'Test Runs',bugs:'Bug Management',reports:'Reports'})[page];document.querySelectorAll('.nav-item').forEach(b=>b.classList.toggle('active',b.dataset.page===page));bindPage()}
+function render(){const pages={dashboard,projects,cases,runs,bugs,reports};$('#page-content').innerHTML=page==='projects'&&selectedProjectKey?projectDetail():page==='cases'&&selectedCaseId?caseDetail():page==='runs'&&selectedRunId?runDetail():pages[page]();$('#crumb').textContent=({dashboard:'Dashboard',projects:'Projects',cases:'Test Cases',runs:'Test Runs',bugs:'Bug Management',reports:'Reports'})[page];document.querySelectorAll('.nav-item').forEach(b=>b.classList.toggle('active',b.dataset.page===page));bindPage()}
 function toast(msg){let t=$('#toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2200)}
 function openModal(type){let cfg={
  project:{title:'새 프로젝트 만들기',desc:'가상의 QA 프로젝트를 추가합니다.',fields:[['name','프로젝트 이름','text','예: Payment Web QA'],['key','프로젝트 키','text','예: PAY'],['release','릴리즈','text','예: v1.0.0']]},
@@ -104,7 +131,14 @@ function openModal(type){let cfg={
  run:{title:'테스트 실행 생성',desc:'프로젝트의 테스트 실행 기록을 만듭니다.',fields:[['name','실행 이름','text','예: Sprint 13 Regression'],['project','프로젝트','select',data.projects.map(p=>p.key)]]}
  }[type];
  $('#modal-root').innerHTML=`<div class="modal-backdrop"><form class="modal" id="create-form"><h2>${cfg.title}</h2><p>${cfg.desc}</p>${cfg.fields.map(([id,label,kind,opts])=>`<label class="field"><span>${label}</span>${kind==='project'?`<select name="project">${projectOptions()}</select>`:kind==='select'?`<select name="${id}">${opts.map(o=>`<option>${o}</option>`).join('')}</select>`:`<input name="${id}" type="text" placeholder="${opts}" required maxlength="100" />`}</label>`).join('')}<div class="modal-actions"><button type="button" class="btn" data-action="close-modal">취소</button><button class="btn primary" type="submit">등록하기</button></div></form></div>`;
- $('#create-form').addEventListener('submit',e=>{e.preventDefault();let fd=new FormData(e.target),v=Object.fromEntries(fd.entries());if(type==='project'){let key=v.key.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,8);if(data.projects.some(p=>p.key===key)){toast('이미 사용 중인 프로젝트 키입니다.');return}data.projects.unshift({key,name:v.name,release:v.release,status:'Active',progress:0,cases:0,bugs:0})}if(type==='case'){if(v.project&&!data.projects.some(p=>p.key===v.project)){toast('유효한 프로젝트를 선택해 주세요.');return}data.cases.unshift({id:'TC-'+String(Math.max(24,...data.cases.map(c=>Number(c.id.replace('TC-',''))||0))+1).padStart(3,'0'),title:v.title,suite:v.suite,priority:v.priority,project:v.project,status:'Blocked'})};if(type==='bug')data.bugs.unshift({id:'BUG-'+(106+data.bugs.length),title:v.title,project:v.project,priority:v.priority,status:'Open',owner:'QA Tester 01'});if(type==='run')data.runs.unshift({id:'RUN-'+String(9+data.runs.length).padStart(3,'0'),name:v.name,project:v.project,date:new Date().toISOString().slice(0,10),passed:0,failed:0,blocked:0,status:'In Progress'});save();$('#modal-root').innerHTML='';render();toast('데모 데이터가 추가되었습니다.')});
+ $('#create-form').addEventListener('submit',e=>{e.preventDefault();let fd=new FormData(e.target),v=Object.fromEntries(fd.entries());if(type==='project'){let key=v.key.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,8);if(data.projects.some(p=>p.key===key)){toast('이미 사용 중인 프로젝트 키입니다.');return}data.projects.unshift({key,name:v.name,release:v.release,status:'Active',progress:0,cases:0,bugs:0})}if(type==='case'){if(v.project&&!data.projects.some(p=>p.key===v.project)){toast('유효한 프로젝트를 선택해 주세요.');return}data.cases.unshift({id:'TC-'+String(Math.max(24,...data.cases.map(c=>Number(c.id.replace('TC-',''))||0))+1).padStart(3,'0'),title:v.title,suite:v.suite,priority:v.priority,project:v.project,status:'Blocked'})};if(type==='bug')data.bugs.unshift({id:'BUG-'+(106+data.bugs.length),title:v.title,project:v.project,priority:v.priority,status:'Open',owner:'QA Tester 01'});if(type==='run'){
+ const linked=data.cases.filter(c=>c.project===v.project);
+ if(linked.length===0){toast('선택한 프로젝트에 연결된 테스트 케이스가 없습니다. Test Cases에서 먼저 연결해 주세요.');return}
+ const next=Math.max(8,...data.runs.map(r=>Number(String(r.id).replace('RUN-',''))||0))+1;
+ const run={id:'RUN-'+String(next).padStart(3,'0'),name:v.name.trim(),project:v.project,date:new Date().toISOString().slice(0,10),results:linked.map(c=>({caseId:c.id,title:c.title,result:'Not Run'}))};
+ data.runs.unshift(run);
+ selectedRunId=run.id;
+ }save();$('#modal-root').innerHTML='';render();toast('데모 데이터가 추가되었습니다.')});
 }
 function bindPage(){
  let cs=$('#case-search');if(cs)cs.addEventListener('input',filterCases);
@@ -127,6 +161,8 @@ document.addEventListener('click',e=>{
  const stat=e.target.closest('[data-stat-action]');if(stat){openStats(stat.dataset.statAction);return}
  const caseButton=e.target.closest('[data-case-id]');
  if(caseButton){selectedCaseId=caseButton.dataset.caseId;page='cases';render();return}
+ const runButton=e.target.closest('[data-run-id].btn');
+ if(runButton){selectedRunId=runButton.dataset.runId;page='runs';render();return}
  const project=e.target.closest('[data-project-key]');
  if(project){selectedProjectKey=project.dataset.projectKey;page='projects';initialProjectStatus='';render();return}
  const action=e.target.closest('[data-action]');
@@ -135,8 +171,9 @@ document.addEventListener('click',e=>{
   if(a==='edit-project'){openEditProject();return}
   if(a==='edit-case'){openEditCase();return}
   if(a==='back-cases'){selectedCaseId=null;render();return}
+  if(a==='back-runs'){selectedRunId=null;render();return}
   if(a==='back-projects'){selectedProjectKey=null;render();return}
-  if(a.startsWith('new-')){openModal(a.slice(4));return}
+  if(a.startsWith('new-')){if(a==='new-run')selectedRunId=null;openModal(a.slice(4));return}
  }
 });
 document.addEventListener('keydown',e=>{
@@ -144,6 +181,14 @@ document.addEventListener('keydown',e=>{
  if(e.key==='Escape'&&$('#modal-root').children.length){$('#modal-root').replaceChildren()}
 });
 document.addEventListener('change',e=>{
+ const runSelect=e.target.closest('select.run-result');
+ if(runSelect){
+  const run=data.runs.find(r=>r.id===runSelect.dataset.runId);
+  const entry=run?.results?.find(r=>r.caseId===runSelect.dataset.caseId);
+  if(!entry||!['Not Run','Pass','Fail','Blocked'].includes(runSelect.value))return;
+  entry.result=runSelect.value;
+  save();render();toast('테스트 실행 결과가 저장되었습니다.');return;
+ }
  const select=e.target.closest('.bug-status');if(!select)return;
  const b=data.bugs.find(x=>x.id===select.dataset.id);
  if(!b)return;
@@ -151,6 +196,6 @@ document.addEventListener('change',e=>{
 });
 function filterCases(){let q=$('#case-search').value.toLowerCase(),s=$('#case-filter').value,project=$('#case-project-filter').value;$('#case-rows').innerHTML=caseRows(data.cases.filter(c=>(c.id+c.title+c.suite+projectLabel(c.project)).toLowerCase().includes(q)&&(!s||c.status===s)&&(!project||(project==='unassigned'?!c.project:c.project===project))))}
 function filterBugs(){let q=$('#bug-search').value.toLowerCase(),s=$('#bug-filter').value;$('#bug-rows').innerHTML=bugRows(data.bugs.filter(b=>(b.id+b.title+b.project).toLowerCase().includes(q)&&(!s||(s==='active'?['Open','In Progress'].includes(b.status):b.status===s))))}
-$('#navigation').addEventListener('click',e=>{let b=e.target.closest('[data-page]');if(b){page=b.dataset.page;selectedProjectKey=null;selectedCaseId=null;initialCaseStatus='';initialBugStatus='';initialProjectStatus='';render()}});
-document.querySelectorAll('.sidebar>.nav-item').forEach(b=>b.addEventListener('click',()=>{page=b.dataset.page;selectedProjectKey=null;selectedCaseId=null;initialCaseStatus='';initialBugStatus='';initialProjectStatus='';render()}));
+$('#navigation').addEventListener('click',e=>{let b=e.target.closest('[data-page]');if(b){page=b.dataset.page;selectedProjectKey=null;selectedCaseId=null;selectedRunId=null;initialCaseStatus='';initialBugStatus='';initialProjectStatus='';render()}});
+document.querySelectorAll('.sidebar>.nav-item').forEach(b=>b.addEventListener('click',()=>{page=b.dataset.page;selectedProjectKey=null;selectedCaseId=null;selectedRunId=null;initialCaseStatus='';initialBugStatus='';initialProjectStatus='';render()}));
 render();
