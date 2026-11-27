@@ -102,9 +102,25 @@ const runCounts=run=>Array.isArray(run.results)?{
 }:{passed:run.passed||0,failed:run.failed||0,blocked:run.blocked||0,notRun:null};
 const runState=run=>!Array.isArray(run.results)?run.status:
  (run.results.length>0&&run.results.every(x=>x.result!=='Not Run')?'Completed':'In Progress');
+// The run lifecycle (In Progress / Completed) is different from its test outcome.
+// Incomplete runs can already contain failures or blocked cases.
+const runOutcome=run=>{
+ if(!Array.isArray(run.results))return 'Legacy';
+ const n=runCounts(run);
+ if(n.failed>0)return 'Fail';
+ if(n.blocked>0)return 'Blocked';
+ if(n.notRun===0&&n.passed>0)return 'Pass';
+ if(n.passed>0)return 'Partial';
+ return 'Not Run';
+};
+const outcomePill=run=>{
+ const o=runOutcome(run);
+ if(o==='Legacy')return '<span class="status low">Sample</span>';
+ return pill(o);
+};
 function runs(){return `${heading('TEST MANAGEMENT','Test Runs','프로젝트별 테스트 실행을 생성하고 각 케이스의 결과를 기록합니다.','<button class="btn primary" data-action="new-run">＋ Create test run</button>')}
  ${stats([{label:'Total runs',value:data.runs.length,icon:'▷',foot:'등록된 테스트 실행'},{label:'Completed',value:data.runs.filter(r=>runState(r)==='Completed').length,icon:'✓',foot:'완료된 실행'},{label:'Passed checks',value:data.runs.reduce((a,r)=>a+runCounts(r).passed,0),icon:'◉',foot:'누적 통과 건수'},{label:'Failed checks',value:data.runs.reduce((a,r)=>a+runCounts(r).failed,0),icon:'!',foot:'누적 실패 건수'}])}
- <div class="panel"><div class="table-wrap"><table><thead><tr><th>RUN ID</th><th>TEST RUN</th><th>PROJECT</th><th>DATE</th><th>PASS / FAIL / BLOCKED</th><th>STATUS</th><th>DETAILS</th></tr></thead><tbody>${data.runs.map(r=>{const n=runCounts(r);return `<tr><td class="case-id">${esc(r.id)}</td><td class="project-name">${esc(r.name)}</td><td>${esc(r.project)}</td><td>${esc(r.date)}</td><td><span class="positive">${n.passed}</span> / <span style="color:#c85c5c">${n.failed}</span> / ${n.blocked}</td><td>${pill(runState(r))}</td><td><button class="btn" data-run-id="${esc(r.id)}">상세 보기 →</button></td></tr>`}).join('')}</tbody></table></div></div>`}
+ <div class="panel"><p class="muted" style="padding:0 16px;font-size:11px">QA RESULT는 케이스 결과 요약(Pass / Fail / Blocked / Partial / Not Run), RUN STATUS는 실행 진행 상태(In Progress / Completed)입니다. 이전 샘플 실행은 Sample로 표시합니다.</p><div class="table-wrap"><table><thead><tr><th>RUN ID</th><th>TEST RUN</th><th>PROJECT</th><th>DATE</th><th>PASS / FAIL / BLOCKED</th><th>QA RESULT</th><th>RUN STATUS</th><th>DETAILS</th></tr></thead><tbody>${data.runs.map(r=>{const n=runCounts(r);return `<tr><td class="case-id">${esc(r.id)}</td><td class="project-name">${esc(r.name)}</td><td>${esc(r.project)}</td><td>${esc(r.date)}</td><td><span class="positive">${n.passed}</span> / <span style="color:#c85c5c">${n.failed}</span> / ${n.blocked}</td><td>${outcomePill(r)}</td><td>${pill(runState(r))}</td><td><button class="btn" data-run-id="${esc(r.id)}">상세 보기 →</button></td></tr>`}).join('')}</tbody></table></div></div>`}
 function runDetail(){
  const run=data.runs.find(r=>r.id===selectedRunId);
  if(!run){selectedRunId=null;return runs()}
@@ -115,7 +131,7 @@ function runDetail(){
  <div class="detail-row"><span>프로젝트</span><strong>${esc(projectLabel(run.project))} (${esc(run.project)})</strong></div>
  <div class="detail-row"><span>실행 날짜</span><strong>${esc(run.date)}</strong></div>
  <div class="detail-row"><span>Pass / Fail / Blocked</span><strong>${n.passed} / ${n.failed} / ${n.blocked}</strong></div>
- ${!isLegacy?`<div class="detail-row"><span>Not Run</span><strong>${n.notRun}</strong></div>`:''}</div>
+ ${!isLegacy?`<div class="detail-row"><span>Not Run</span><strong>${n.notRun}</strong></div>`:''}<div class="detail-row"><span>QA 결과 (집계)</span><strong>${outcomePill(run)}</strong></div></div>
  ${isLegacy?`<div class="panel"><h3>이전 버전 샘플 실행</h3><p class="muted">이 실행은 기존 샘플 통계만 있고 케이스별 결과 기록이 없습니다. 원본 통계를 보존하기 위해 읽기 전용으로 표시해요. 케이스별 기록은 새 Test Run을 만들어 시작해 주세요.</p></div>`:
  `<div class="panel"><div class="panel-head"><h3>Test results</h3><span>${run.results.length} cases · 프로젝트 연결 당시의 목록</span></div><div class="table-wrap"><table><thead><tr><th>CASE ID</th><th>TEST CASE</th><th>RESULT</th><th>CHANGE RESULT</th></tr></thead><tbody>${run.results.map(r=>`<tr><td class="case-id">${esc(r.caseId)}</td><td class="project-name">${esc(r.title)}</td><td>${r.result==='Not Run'?'<span class="status low">Not Run</span>':pill(r.result)}</td><td><select class="filter run-result" data-run-id="${esc(run.id)}" data-case-id="${esc(r.caseId)}" aria-label="${esc(r.caseId)} 결과 변경">${['Not Run','Pass','Fail','Blocked'].map(v=>`<option value="${v}" ${r.result===v?'selected':''}>${v}</option>`).join('')}</select></td></tr>`).join('')}</tbody></table></div></div>`}`;
 }
