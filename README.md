@@ -1,22 +1,19 @@
-# QABoard v0.4.0 — Test Runs 첫 단계
+# QABoard v0.4.1 — Test Run 결과 변경 오류 수정
 
-GitHub Pages에서 실행 가능한 HTML/CSS/JavaScript QA 포트폴리오 데모입니다.
+## 변경 사항
+- Test Runs 상세 화면의 `Change Result` 드롭다운을 클릭할 때 Test Cases 상세 화면으로 잘못 이동하던 오류를 수정했습니다.
+- 원인: 클릭 이벤트 처리기가 `data-case-id` 속성을 가진 모든 요소를 테스트 케이스 상세 버튼으로 취급했습니다. Test Run의 `select`에도 같은 속성이 있어 잘못 이동했습니다.
+- 수정: 테스트 케이스 상세 화면 이동 이벤트는 `button[data-case-id]`에만 반응하도록 제한했습니다.
+- GitHub Pages에서 기존 JavaScript 캐시를 피하도록 `index.html`의 스크립트 버전을 `0.4.1`로 변경했습니다.
 
-## 이번 릴리즈
-- Test Runs 목록에서 `상세 보기`로 실행 정보 확인
-- **새 Test Run 생성 시** 선택 프로젝트에 연결된 Test Cases를 스냅샷으로 포함
-- 각 케이스에 `Not Run`, `Pass`, `Fail`, `Blocked` 결과 기록
-- 결과 집계 및 완료 상태 자동 갱신 (`Not Run`이 없으면 Completed)
-- localStorage (`qaboard-demo`) 저장, 새로고침 시 유지
-- 기존 프로젝트·테스트 케이스·버그·리포트 화면 그대로 유지
+## 업로드
+기존 저장소 루트에 `index.html`, `README.md`, `src/app.js`를 같은 경로로 덮어쓰기합니다. `src/styles.css`는 변경하지 않았습니다.
 
-## 주의
-- 기존에 저장된 RUN-006 / RUN-007 / RUN-008 같은 **과거 샘플 실행**은 케이스별 결과가 없으므로 상세 화면에서 **읽기 전용 요약**으로 표시. 기존 값은 초기화하거나 가짜 케이스와 연결하지 않습니다.
-- 새 실행을 생성하려면 해당 프로젝트에 먼저 Test Case 한 개 이상 연결해야 합니다.
-- 실행 생성 시의 케이스 목록을 보존합니다. 이후 Test Case 수정은 기존 실행의 케이스 이름/목록을 바꾸지 않습니다.
-- 결과는 `localStorage`에만 저장됩니다. 브라우저/기기 간 동기화 또는 사용자 인증이 없습니다.
-- 포트폴리오용 가상 프로젝트와 테스트 데이터만 사용하고, 실제 개인정보·고객정보는 입력하지 마세요.
+## 배포 확인
+1. Test Runs에서 신규 실행의 상세 보기로 이동합니다.
+2. Change Result 드롭다운을 클릭해도 Test Runs 상세 화면에 남아 있어야 합니다.
+3. Pass, Fail, Blocked 중 하나로 바꾸면 결과와 집계가 갱신되어야 합니다.
+4. 새로고침 후 결과가 보존되는지 확인합니다.
+5. Test Cases에서 기존 `상세 보기 →` 버튼이 여전히 작동하는지 확인합니다.
 
-## 실행 및 업데이트
-`index.html`을 브라우저로 열거나 GitHub Pages에 루트 `index.html`, `src/`, `README.md`를 업로드하세요.
-커밋 메시지: `feat: record test case results in test runs`
+데모 데이터는 현재 브라우저의 localStorage에만 저장됩니다. 실제 개인정보를 입력하지 마세요.

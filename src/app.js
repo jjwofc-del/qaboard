@@ -159,7 +159,7 @@ function openStats(action){
 // One delegated handler works for buttons added AFTER the page was rendered.
 document.addEventListener('click',e=>{
  const stat=e.target.closest('[data-stat-action]');if(stat){openStats(stat.dataset.statAction);return}
- const caseButton=e.target.closest('[data-case-id]');
+ const caseButton=e.target.closest('button[data-case-id]');
  if(caseButton){selectedCaseId=caseButton.dataset.caseId;page='cases';render();return}
  const runButton=e.target.closest('[data-run-id].btn');
  if(runButton){selectedRunId=runButton.dataset.runId;page='runs';render();return}
