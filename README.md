@@ -1,3 +1,11 @@
+# QABoard v1.1.1 — Test Suite UI 개선
+
+- 기존 **TC 묶음** 명칭을 **Test Suite**로 변경했습니다.
+- Test Suite 목록에서 행 전체를 클릭하거나 Enter/Space로 세부 TC를 엽니다.
+- 상단 TC 묶음/세부 TC/프로젝트 연결 TC 요약 카드 3개를 제거했습니다.
+- TC 데이터 구조 및 이전 Test Run 결과는 변경하지 않았습니다.
+- 입력 데이터는 브라우저 로컬 저장소에 남습니다. 업그레이드 전 Settings & Backup에서 JSON 백업을 권장합니다.
+
 # QABoard v1.1.0 — TC 묶음 / 세부 TC 관리
 
 GitHub Pages에서 바로 배포할 수 있는 정적 웹앱입니다.

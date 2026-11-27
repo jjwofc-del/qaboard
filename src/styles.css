@@ -118,3 +118,7 @@ button:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-vis
 .tc-collection-banner span{font-size:11px;color:#5b82a2}.tc-collection-actions{display:flex;gap:8px;flex-wrap:wrap}
 .tc-collection-form input[readonly]{background:#edf5fc;color:#466987;cursor:not-allowed}
 .tc-mode .tc-collection-form{border-color:#d6e7f7}
+
+/* v1.1.1 - Clickable Test Suite rows */
+.tc-collection-table tbody .tc-suite-row{cursor:pointer;transition:background .15s ease}
+.tc-mode .tc-collection-table tbody .tc-suite-row:hover,.tc-mode .tc-collection-table tbody .tc-suite-row:focus-visible{background:#e5f2ff;outline:2px solid #3686ce;outline-offset:-2px}

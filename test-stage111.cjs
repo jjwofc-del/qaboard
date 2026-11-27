@@ -1,0 +1,11 @@
+const fs=require('fs'),assert=require('node:assert/strict');
+const app=fs.readFileSync(__dirname+'/src/app.js','utf8');
+const html=fs.readFileSync(__dirname+'/index.html','utf8');
+assert.match(app,/Test Suite 목록/);
+assert.doesNotMatch(app,/<div class="tc-hub-summary">/);
+assert.match(app,/class="tc-suite-row" tabindex="0" role="link"/);
+assert.match(app,/data-tc-group="\$\{esc\(g.id\)\}"/);
+assert.doesNotMatch(app,/세부 TC 보기 →/);
+assert.match(app,/event.key!=='Enter' && event.key!==' '/);
+assert.match(html,/Test Suites <b id="nav-tc-hub-count"/);
+console.log('PASS suite naming, removed summary, clickable rows, keyboard support, version stamp');
