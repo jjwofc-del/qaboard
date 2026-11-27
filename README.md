@@ -1,16 +1,17 @@
-# QABoard v0.2.1 — interaction hotfix
+# QABoard v0.3.0 — 테스트 케이스 상세 보기·수정
 
-GitHub Pages에서 작동하는 정적 HTML/CSS/JS 데모입니다. 서버 로그인과 개인정보 수집은 없습니다.
+기존 GitHub Pages 정적 사이트(HTML/CSS/JavaScript) 기반을 유지합니다.
 
-## 변경 내용
-- 프로젝트 목록의 **상세 보기** 버튼을 눌러 상세 화면 열기 → **Edit project**로 이름, 릴리즈, 상태, 진행률 수정
-- `New project`, `Create bug`, `Add test case`, `Create test run`, `Edit project` 모달의 **취소** 버튼 작동 수정 (Escape 키도 지원)
-- Dashboard 요약 카드 클릭: 전체 테스트 → Test Cases, Pass rate → Pass 필터, Open bugs → 열린 버그 필터, Active projects → 진행 중 프로젝트 목록
-- 기존 메뉴 및 브라우저 `localStorage` 저장 유지
-- `index.html`에서 버전 쿼리를 추가해 배포 후 오래된 JS/CSS 캐시 문제 완화
+## 이번 기능
+- Test Cases 표에 **상세 보기** 버튼 추가
+- 상세 페이지에서 케이스 제목, ID, Suite, 우선순위, 마지막 결과 확인
+- **Edit test case**로 제목, Suite, 우선순위, 사전 조건, 테스트 단계, 예상 결과 수정
+- 저장 후 상세 페이지 즉시 반영, 새로고침 시 브라우저 localStorage에서 유지
+- **취소**, **Escape**, 목록 돌아가기 기능 유지
+- 기존 프로젝트 상세/수정, Dashboard 지표 링크, 버그 등록 및 상태 변경 유지
 
-## GitHub 웹사이트 업로드
-압축을 푼 다음 `index.html`, `README.md`, `src/app.js`, `src/styles.css`를 저장소 루트의 동일한 경로에 덮어쓰세요. ZIP 파일 자체를 올리지 마세요.
+## GitHub 업로드
+ZIP 압축을 푼 뒤 루트의 `index.html`, `README.md`, `src` 폴더를 GitHub 저장소 루트의 동일한 경로로 업로드합니다. `src/app.js`와 `src/styles.css`를 교체하고 `index.html`의 버전 쿼리도 반영해야 합니다.
 
-## 참고
-데모 데이터는 해당 브라우저의 localStorage에 저장됩니다. 실제 개인정보, 회사 데이터 및 고객 정보를 입력하지 마세요.
+## 유의 사항
+이 사이트는 브라우저에만 저장하는 데모입니다. 실제 고객 정보, 개인정보, 회사 기밀은 입력하지 마세요. 쇼핑몰에 대한 실제 자동화 테스트나 서버 기반 협업은 아직 지원하지 않습니다. 기존 `qaboard-demo` 저장 키를 그대로 사용해 브라우저에 저장된 이전 데이터는 유지됩니다.

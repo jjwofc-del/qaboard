@@ -27,6 +27,7 @@ const seed = {
 let data = JSON.parse(localStorage.getItem('qaboard-demo')||'null') || seed;
 let page='dashboard';
 let selectedProjectKey=null;
+let selectedCaseId=null;
 let initialCaseStatus='';
 let initialBugStatus='';
 let initialProjectStatus='';
@@ -43,13 +44,49 @@ function openEditProject(){const p=data.projects.find(x=>x.key===selectedProject
 
 function dashboard(){let total=data.cases.length,pass=data.cases.filter(x=>x.status==='Pass').length,open=data.bugs.filter(x=>x.status==='Open'||x.status==='In Progress').length;return `${heading('OVERVIEW','Good morning, QA Tester 👋','프로젝트 품질 현황을 한눈에 확인하세요.','<button class="btn primary" data-action="new-bug">＋ Create bug</button>')}${stats([{label:'Total test cases',value:total,icon:'☷',foot:'등록된 샘플 테스트 케이스',action:'cases'},{label:'Pass rate',value:Math.round(pass/Math.max(total,1)*100)+'%',icon:'✓',foot:'현재 테스트 케이스 기준',action:'passed-cases'},{label:'Open bugs',value:open,icon:'⚑',foot:'확인 및 조치가 필요한 버그',action:'open-bugs'},{label:'Active projects',value:data.projects.filter(x=>x.status==='Active').length,icon:'◫',foot:'진행 중인 프로젝트',action:'active-projects'}])}<div class="dashboard-grid"><div class="panel"><div class="panel-head"><h3>Project test progress</h3><span>All projects</span></div>${data.projects.map(p=>`<div class="progress-row"><strong>${p.key}</strong><div class="progress-track"><div class="progress-fill" style="width:${p.progress}%"></div></div><em>${p.progress}%</em></div>`).join('')}<div class="legend"><span><i style="background:#4eaa85"></i>Completed</span><span><i style="background:#edf1ef"></i>Remaining</span></div></div><div class="panel"><div class="panel-head"><h3>Recent activity</h3><span>Latest updates</span></div><div class="activity"><div class="activity-dot">✓</div><div><strong>TC-024 테스트 통과</strong><small>E-commerce Web QA · 방금 전</small></div></div><div class="activity"><div class="activity-dot">⚑</div><div><strong>BUG-105 신규 등록</strong><small>장바구니 수량 변경 이슈 · 1시간 전</small></div></div><div class="activity"><div class="activity-dot">▷</div><div><strong>RUN-008 테스트 실행 중</strong><small>Sprint 12 Smoke Test · 어제</small></div></div></div></div>${projectTable()}`}
 function projects(){return `${heading('WORKSPACE','Projects','프로젝트와 릴리즈별 QA 진행 상황을 관리합니다.','<button class="btn primary" data-action="new-project">＋ New project</button>')}${stats([{label:'All projects',value:data.projects.length,icon:'◫',foot:'전체 데모 프로젝트'},{label:'In progress',value:data.projects.filter(p=>p.status==='Active').length,icon:'◷',foot:'진행 중인 프로젝트'},{label:'Test cases',value:data.projects.reduce((a,p)=>a+p.cases,0),icon:'☷',foot:'프로젝트에 연결된 케이스'},{label:'Tracked bugs',value:data.projects.reduce((a,p)=>a+p.bugs,0),icon:'⚑',foot:'프로젝트별 버그 합계'}])}${projectTable(initialProjectStatus?data.projects.filter(p=>p.status===initialProjectStatus):data.projects)}`}
-function cases(){return `${heading('TEST MANAGEMENT','Test Cases','테스트 시나리오와 실행 기준을 관리합니다.','<button class="btn primary" data-action="new-case">＋ Add test case</button>')}<div class="toolbar"><input class="search" id="case-search" placeholder="⌕  테스트 케이스 검색..." /><select class="filter" id="case-filter"><option value="">All status</option><option ${initialCaseStatus==='Pass'?'selected':''}>Pass</option><option>Fail</option><option>Blocked</option></select></div><div class="panel"><div class="table-wrap"><table><thead><tr><th>CASE ID</th><th>TITLE</th><th>TEST SUITE</th><th>PRIORITY</th><th>LAST RESULT</th></tr></thead><tbody id="case-rows">${caseRows(initialCaseStatus?data.cases.filter(c=>c.status===initialCaseStatus):data.cases)}</tbody></table></div></div>`}
-function caseRows(rows){return rows.length?rows.map(c=>`<tr><td class="case-id">${c.id}</td><td class="project-name">${c.title}</td><td>${c.suite}</td><td>${pill(c.priority)}</td><td>${pill(c.status)}</td></tr>`).join(''):'<tr><td colspan="5" class="empty-note">검색 결과가 없습니다.</td></tr>'}
+function cases(){return `${heading('TEST MANAGEMENT','Test Cases','테스트 시나리오와 실행 기준을 관리합니다.','<button class="btn primary" data-action="new-case">＋ Add test case</button>')}<div class="toolbar"><input class="search" id="case-search" placeholder="⌕  테스트 케이스 검색..." /><select class="filter" id="case-filter"><option value="">All status</option><option ${initialCaseStatus==='Pass'?'selected':''}>Pass</option><option>Fail</option><option>Blocked</option></select></div><div class="panel"><div class="table-wrap"><table><thead><tr><th>CASE ID</th><th>TITLE</th><th>TEST SUITE</th><th>PRIORITY</th><th>LAST RESULT</th><th>DETAILS</th></tr></thead><tbody id="case-rows">${caseRows(initialCaseStatus?data.cases.filter(c=>c.status===initialCaseStatus):data.cases)}</tbody></table></div></div>`}
+function caseRows(rows){return rows.length?rows.map(c=>`<tr><td class="case-id">${esc(c.id)}</td><td class="project-name">${esc(c.title)}</td><td>${esc(c.suite)}</td><td>${pill(c.priority)}</td><td>${pill(c.status)}</td><td><button type="button" class="btn" data-case-id="${esc(c.id)}">상세 보기 →</button></td></tr>`).join(''):'<tr><td colspan="6" class="empty-note">검색 결과가 없습니다.</td></tr>'}
+function caseDetail(){
+ const c=data.cases.find(x=>x.id===selectedCaseId);
+ if(!c){selectedCaseId=null;return cases()}
+ return `${heading('TEST CASE DETAILS',esc(c.id)+' · '+esc(c.title),'테스트 조건과 예상 결과를 확인하고 수정하세요.','<button class="btn primary" data-action="edit-case">✎ Edit test case</button>')}
+ <button type="button" class="btn" data-action="back-cases" style="margin-bottom:16px">← 테스트 케이스 목록으로</button>
+ <div class="dashboard-grid"><div class="panel"><div class="panel-head"><h3>Test case information</h3>${pill(c.status)}</div>
+ <div class="detail-row"><span>케이스 ID</span><strong>${esc(c.id)}</strong></div>
+ <div class="detail-row"><span>이름</span><strong>${esc(c.title)}</strong></div>
+ <div class="detail-row"><span>Test suite</span><strong>${esc(c.suite)}</strong></div>
+ <div class="detail-row"><span>Priority</span><strong>${pill(c.priority)}</strong></div>
+ <div class="detail-row"><span>Last result</span><strong>${pill(c.status)}</strong></div></div>
+ <div class="panel"><div class="panel-head"><h3>Test procedure</h3><span>Demo</span></div>
+ <div class="case-section-label">사전 조건</div><div class="case-notes">${esc(c.preconditions||'미작성')}</div>
+ <div class="case-section-label">테스트 단계</div><div class="case-notes">${esc(c.steps||'미작성')}</div>
+ <div class="case-section-label">예상 결과</div><div class="case-notes">${esc(c.expected||'미작성')}</div></div></div>`;
+}
+function openEditCase(){
+ const c=data.cases.find(x=>x.id===selectedCaseId);if(!c)return;
+ $('#modal-root').innerHTML=`<div class="modal-backdrop"><form class="modal" id="edit-case-form">
+ <h2>테스트 케이스 수정</h2><p>${esc(c.id)} · 가상의 테스트 시나리오만 입력해 주세요.</p>
+ <label class="field"><span>제목</span><input name="title" value="${esc(c.title)}" maxlength="100" required /></label>
+ <label class="field"><span>Test suite</span><input name="suite" value="${esc(c.suite)}" maxlength="80" required /></label>
+ <label class="field"><span>우선순위</span><select name="priority">${['Low','Medium','High'].map(v=>`<option ${c.priority===v?'selected':''}>${v}</option>`).join('')}</select></label>
+ <label class="field"><span>사전 조건</span><textarea name="preconditions" maxlength="1000" rows="2">${esc(c.preconditions||'')}</textarea></label>
+ <label class="field"><span>테스트 단계</span><textarea name="steps" maxlength="2000" rows="3">${esc(c.steps||'')}</textarea></label>
+ <label class="field"><span>예상 결과</span><textarea name="expected" maxlength="1000" rows="2">${esc(c.expected||'')}</textarea></label>
+ <div class="modal-actions"><button type="button" class="btn" data-action="close-modal">취소</button><button type="submit" class="btn primary">변경 저장</button></div></form></div>`;
+ $('#edit-case-form').addEventListener('submit',e=>{
+  e.preventDefault();const v=Object.fromEntries(new FormData(e.currentTarget).entries());
+  if(!v.title.trim()||!v.suite.trim()){toast('제목과 테스트 스위트를 입력하세요.');return}
+  c.title=v.title.trim();c.suite=v.suite.trim();c.priority=v.priority;
+  c.preconditions=v.preconditions.trim();c.steps=v.steps.trim();c.expected=v.expected.trim();
+  save();$('#modal-root').replaceChildren();render();toast('테스트 케이스 수정 내용을 저장했습니다.');
+ });
+}
+
 function runs(){return `${heading('TEST MANAGEMENT','Test Runs','테스트 실행 단위별 결과와 진행 상태를 추적합니다.','<button class="btn primary" data-action="new-run">＋ Create test run</button>')} ${stats([{label:'Total runs',value:data.runs.length,icon:'▷',foot:'등록된 테스트 실행'},{label:'Completed',value:data.runs.filter(r=>r.status==='Completed').length,icon:'✓',foot:'완료된 실행'},{label:'Passed checks',value:data.runs.reduce((a,r)=>a+r.passed,0),icon:'◉',foot:'누적 통과 건수'},{label:'Failed checks',value:data.runs.reduce((a,r)=>a+r.failed,0),icon:'!',foot:'누적 실패 건수'}])}<div class="panel"><div class="table-wrap"><table><thead><tr><th>RUN ID</th><th>TEST RUN</th><th>PROJECT</th><th>DATE</th><th>PASS / FAIL / BLOCKED</th><th>STATUS</th></tr></thead><tbody>${data.runs.map(r=>`<tr><td class="case-id">${r.id}</td><td class="project-name">${r.name}</td><td>${r.project}</td><td>${r.date}</td><td><span class="positive">${r.passed}</span> / <span style="color:#c85c5c">${r.failed}</span> / ${r.blocked}</td><td>${pill(r.status)}</td></tr>`).join('')}</tbody></table></div></div>`}
 function bugs(){return `${heading('ISSUE TRACKING','Bug Management','발견된 결함을 기록하고 수정 상태를 추적합니다.','<button class="btn primary" data-action="new-bug">＋ Create bug</button>')}<div class="toolbar"><input class="search" id="bug-search" placeholder="⌕  버그 제목 또는 ID 검색..." /><select class="filter" id="bug-filter"><option value="">All status</option><option ${initialBugStatus==='active'?'selected':''} value="active">Open + In Progress</option><option>Open</option><option>In Progress</option><option>Resolved</option><option>Closed</option></select></div><div class="panel"><div class="table-wrap"><table><thead><tr><th>BUG ID</th><th>SUMMARY</th><th>PROJECT</th><th>PRIORITY</th><th>ASSIGNEE</th><th>STATUS</th><th>CHANGE</th></tr></thead><tbody id="bug-rows">${bugRows(initialBugStatus==='active'?data.bugs.filter(b=>['Open','In Progress'].includes(b.status)):data.bugs)}</tbody></table></div></div>`}
 function bugRows(rows){return rows.length?rows.map(b=>`<tr><td class="bug-id">${b.id}</td><td class="project-name">${b.title}</td><td>${b.project}</td><td>${pill(b.priority)}</td><td>${b.owner}</td><td>${pill(b.status)}</td><td><select class="filter bug-status" data-id="${b.id}">${['Open','In Progress','Resolved','Closed'].map(s=>`<option ${s===b.status?'selected':''}>${s}</option>`).join('')}</select></td></tr>`).join(''):'<tr><td colspan="7" class="empty-note">검색 결과가 없습니다.</td></tr>'}
 function reports(){let passed=data.cases.filter(c=>c.status==='Pass').length,failed=data.cases.filter(c=>c.status==='Fail').length,blocked=data.cases.filter(c=>c.status==='Blocked').length;return `${heading('INSIGHTS','Reports','테스트 결과와 버그 현황을 요약합니다.')} ${stats([{label:'Pass',value:passed,icon:'✓',foot:'통과한 테스트 케이스'},{label:'Fail',value:failed,icon:'!',foot:'실패한 테스트 케이스'},{label:'Blocked',value:blocked,icon:'Ⅱ',foot:'실행이 차단된 케이스'},{label:'Pass rate',value:Math.round(passed/Math.max(data.cases.length,1)*100)+'%',icon:'◉',foot:'전체 케이스 대비 통과율'}])}<div class="dashboard-grid"><div class="panel"><div class="panel-head"><h3>Test result distribution</h3><span>Sample data</span></div><div class="chart-bars">${[['Pass',passed],['Fail',failed],['Blocked',blocked]].map(([n,v])=>`<div class="chart-col"><em>${v}</em><div class="chart-bar" style="height:${Math.max(5,v/Math.max(data.cases.length,1)*100)}%"></div><small>${n}</small></div>`).join('')}</div></div><div class="panel"><div class="panel-head"><h3>Bug status summary</h3><span>All projects</span></div>${['Open','In Progress','Resolved','Closed'].map(s=>`<div class="progress-row"><strong>${s}</strong><div class="progress-track"><div class="progress-fill" style="width:${data.bugs.filter(b=>b.status===s).length/Math.max(data.bugs.length,1)*100}%"></div></div><em>${data.bugs.filter(b=>b.status===s).length}</em></div>`).join('')}</div></div>`}
-function render(){const pages={dashboard,projects,cases,runs,bugs,reports};$('#page-content').innerHTML=page==='projects'&&selectedProjectKey?projectDetail():pages[page]();$('#crumb').textContent=({dashboard:'Dashboard',projects:'Projects',cases:'Test Cases',runs:'Test Runs',bugs:'Bug Management',reports:'Reports'})[page];document.querySelectorAll('.nav-item').forEach(b=>b.classList.toggle('active',b.dataset.page===page));bindPage()}
+function render(){const pages={dashboard,projects,cases,runs,bugs,reports};$('#page-content').innerHTML=page==='projects'&&selectedProjectKey?projectDetail():page==='cases'&&selectedCaseId?caseDetail():pages[page]();$('#crumb').textContent=({dashboard:'Dashboard',projects:'Projects',cases:'Test Cases',runs:'Test Runs',bugs:'Bug Management',reports:'Reports'})[page];document.querySelectorAll('.nav-item').forEach(b=>b.classList.toggle('active',b.dataset.page===page));bindPage()}
 function toast(msg){let t=$('#toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2200)}
 function openModal(type){let cfg={
  project:{title:'새 프로젝트 만들기',desc:'가상의 QA 프로젝트를 추가합니다.',fields:[['name','프로젝트 이름','text','예: Payment Web QA'],['key','프로젝트 키','text','예: PAY'],['release','릴리즈','text','예: v1.0.0']]},
@@ -67,7 +104,7 @@ function bindPage(){
  let bf=$('#bug-filter');if(bf)bf.addEventListener('change',filterBugs);
 }
 function openStats(action){
- selectedProjectKey=null;
+ selectedProjectKey=null;selectedCaseId=null;
  initialCaseStatus='';initialBugStatus='';initialProjectStatus='';
  if(action==='cases'){page='cases'}
  else if(action==='passed-cases'){page='cases';initialCaseStatus='Pass'}
@@ -78,12 +115,16 @@ function openStats(action){
 // One delegated handler works for buttons added AFTER the page was rendered.
 document.addEventListener('click',e=>{
  const stat=e.target.closest('[data-stat-action]');if(stat){openStats(stat.dataset.statAction);return}
+ const caseButton=e.target.closest('[data-case-id]');
+ if(caseButton){selectedCaseId=caseButton.dataset.caseId;page='cases';render();return}
  const project=e.target.closest('[data-project-key]');
  if(project){selectedProjectKey=project.dataset.projectKey;page='projects';initialProjectStatus='';render();return}
  const action=e.target.closest('[data-action]');
  if(action){const a=action.dataset.action;
   if(a==='close-modal'){$('#modal-root').replaceChildren();return}
   if(a==='edit-project'){openEditProject();return}
+  if(a==='edit-case'){openEditCase();return}
+  if(a==='back-cases'){selectedCaseId=null;render();return}
   if(a==='back-projects'){selectedProjectKey=null;render();return}
   if(a.startsWith('new-')){openModal(a.slice(4));return}
  }
@@ -100,6 +141,6 @@ document.addEventListener('change',e=>{
 });
 function filterCases(){let q=$('#case-search').value.toLowerCase(),s=$('#case-filter').value;$('#case-rows').innerHTML=caseRows(data.cases.filter(c=>(c.id+c.title+c.suite).toLowerCase().includes(q)&&(!s||c.status===s)))}
 function filterBugs(){let q=$('#bug-search').value.toLowerCase(),s=$('#bug-filter').value;$('#bug-rows').innerHTML=bugRows(data.bugs.filter(b=>(b.id+b.title+b.project).toLowerCase().includes(q)&&(!s||(s==='active'?['Open','In Progress'].includes(b.status):b.status===s))))}
-$('#navigation').addEventListener('click',e=>{let b=e.target.closest('[data-page]');if(b){page=b.dataset.page;selectedProjectKey=null;initialCaseStatus='';initialBugStatus='';initialProjectStatus='';render()}});
-document.querySelectorAll('.sidebar>.nav-item').forEach(b=>b.addEventListener('click',()=>{page=b.dataset.page;selectedProjectKey=null;initialCaseStatus='';initialBugStatus='';initialProjectStatus='';render()}));
+$('#navigation').addEventListener('click',e=>{let b=e.target.closest('[data-page]');if(b){page=b.dataset.page;selectedProjectKey=null;selectedCaseId=null;initialCaseStatus='';initialBugStatus='';initialProjectStatus='';render()}});
+document.querySelectorAll('.sidebar>.nav-item').forEach(b=>b.addEventListener('click',()=>{page=b.dataset.page;selectedProjectKey=null;selectedCaseId=null;initialCaseStatus='';initialBugStatus='';initialProjectStatus='';render()}));
 render();
