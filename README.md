@@ -1,33 +1,16 @@
-# QABoard Starter
+# QABoard v0.2.1 — interaction hotfix
 
-개인정보 없이 가상 데이터로 QA 업무 흐름을 체험하는 포트폴리오용 데모입니다.
+GitHub Pages에서 작동하는 정적 HTML/CSS/JS 데모입니다. 서버 로그인과 개인정보 수집은 없습니다.
 
-## 포함 기능
-- Dashboard 요약 지표와 프로젝트 진행률
-- 프로젝트 목록 및 프로젝트 생성
-- 테스트 케이스 목록, 검색, 상태 필터, 케이스 추가
-- 테스트 실행 목록 및 실행 생성
-- 버그 목록, 검색, 상태 변경, 버그 등록
-- 테스트/버그 통계 리포트
-- 브라우저 localStorage에 데모 데이터 저장
+## 변경 내용
+- 프로젝트 목록의 **상세 보기** 버튼을 눌러 상세 화면 열기 → **Edit project**로 이름, 릴리즈, 상태, 진행률 수정
+- `New project`, `Create bug`, `Add test case`, `Create test run`, `Edit project` 모달의 **취소** 버튼 작동 수정 (Escape 키도 지원)
+- Dashboard 요약 카드 클릭: 전체 테스트 → Test Cases, Pass rate → Pass 필터, Open bugs → 열린 버그 필터, Active projects → 진행 중 프로젝트 목록
+- 기존 메뉴 및 브라우저 `localStorage` 저장 유지
+- `index.html`에서 버전 쿼리를 추가해 배포 후 오래된 JS/CSS 캐시 문제 완화
 
-## 실행 방법
-가장 간단한 방법은 `index.html`을 브라우저에서 여는 것입니다.
-권장: VS Code에서 폴더를 열고 Live Server로 실행하세요.
+## GitHub 웹사이트 업로드
+압축을 푼 다음 `index.html`, `README.md`, `src/app.js`, `src/styles.css`를 저장소 루트의 동일한 경로에 덮어쓰세요. ZIP 파일 자체를 올리지 마세요.
 
-## 개인정보 및 보안
-- 로그인이나 외부 서버 연동이 없습니다.
-- 입력한 데모 데이터는 현재 브라우저의 localStorage에만 저장됩니다.
-- 실명, 이메일, 전화번호, 고객정보, 회사 기밀 등을 입력하지 마세요.
-- 브라우저 저장 데이터를 초기화하려면 개발자 도구 콘솔에서 `localStorage.removeItem('qaboard-demo')`를 실행한 뒤 새로고침하세요.
-
-## 현재 범위 및 다음 단계
-현재 버전은 프론트엔드 데모이며, 실제 다중 사용자 서비스나 서버 데이터베이스는 포함하지 않습니다.
-다음 단계에서 Next.js + TypeScript 구조로 옮기고, PostgreSQL/Prisma 데이터 모델과 자동화 테스트를 단계적으로 추가할 수 있습니다.
-
-## Phase 2 — 프로젝트 상세 보기 및 수정
-- Projects 목록의 `상세 보기` 버튼으로 상세 화면 진입
-- 프로젝트 이름, 릴리즈, 상태, 진행률 확인
-- `Edit project`에서 이름, 릴리즈, 상태, 진행률 수정
-- 프로젝트 키는 고정하며 변경 내용은 기존 `qaboard-demo` localStorage에 저장
-- 프로젝트 삭제 및 서버 동기화는 이번 범위에 포함되지 않음
+## 참고
+데모 데이터는 해당 브라우저의 localStorage에 저장됩니다. 실제 개인정보, 회사 데이터 및 고객 정보를 입력하지 마세요.
