@@ -526,6 +526,16 @@ function filterBugs(){
 
 $('#workspace-select').addEventListener('change',e=>{workspaceMode=e.target.value==='tc'?'tc':'demo';page=workspaceMode==='tc'?'tc-hub':'dashboard';selectedHubEditCaseId=null;selectedWorkshopDraftId=null;selectedProjectKey=null;selectedCaseId=null;selectedRunId=null;selectedBugId=null;render()});
 $('#tc-nav').addEventListener('click',e=>{const btn=e.target.closest('[data-page]');if(!btn)return;if(btn.dataset.page==='workshop')openTcForm();else{selectedHubEditCaseId=null;selectedWorkshopDraftId=null;page='tc-hub';render()}});
-$('#navigation').addEventListener('click',e=>{let b=e.target.closest('[data-page]');if(b){page=b.dataset.page;selectedProjectKey=null;selectedCaseId=null;selectedRunId=null;selectedBugId=null;initialCaseStatus='';initialBugStatus='';initialProjectStatus='';analyticsDrillProject='';render()}});
-document.querySelectorAll('.sidebar>.nav-item').forEach(b=>b.addEventListener('click',()=>{page=b.dataset.page;selectedProjectKey=null;selectedCaseId=null;selectedRunId=null;selectedBugId=null;initialCaseStatus='';initialBugStatus='';initialProjectStatus='';analyticsDrillProject='';render()}));
+// Route ALL Demo Workspace navigation buttons, including Reports and Settings & Backup.
+// These two buttons are siblings of #navigation, but children of #demo-navigation.
+$('#demo-navigation').addEventListener('click',e=>{
+ const button=e.target.closest('button.nav-item[data-page]');
+ if(!button||!e.currentTarget.contains(button))return;
+ const nextPage=button.dataset.page;
+ if(!['dashboard','projects','cases','runs','bugs','reports','settings'].includes(nextPage))return;
+ page=nextPage;
+ selectedProjectKey=null;selectedCaseId=null;selectedRunId=null;selectedBugId=null;
+ initialCaseStatus='';initialBugStatus='';initialProjectStatus='';analyticsDrillProject='';
+ render();
+});
 render();

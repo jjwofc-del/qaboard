@@ -1,3 +1,11 @@
+# QABoard v0.9.1 — navigation bugfix
+
+- Fixed Demo Workspace navigation for **Reports** and **Settings & Backup**.
+- Previously both buttons were outside the `#navigation` click listener, so nothing happened when clicked.
+- Navigation now listens on their shared parent `#demo-navigation`.
+- No changes to stored localStorage data, export/restore formats, or TC features.
+- No backend or personal data collection.
+
 # QABoard v0.7.0 — Portfolio Demo
 
 **QABoard**는 QA 테스트 케이스, 실행 결과, 버그 이슈, 품질 리포트를 한 화면에서 관리하기 위한 정적 웹 포트폴리오 프로젝트입니다. JIRA의 이슈 흐름, TestRail의 테스트 관리, monday.com의 직관적인 현황 표시에서 아이디어를 얻었습니다. 해당 서비스의 공식 제품이나 복제본은 아닙니다.
