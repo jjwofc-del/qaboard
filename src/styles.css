@@ -14,3 +14,17 @@
 
 /* v0.4.0 Run details */
 .run-result{min-width:110px}.panel p.muted{font-size:12px;line-height:1.7}
+
+/* Stage 5 complete: scrollable modal, audit trail and bug controls */
+.modal-backdrop{overflow-y:auto;align-items:safe center}
+.modal{max-height:calc(100vh - 40px);overflow-y:auto}
+.header-buttons{display:flex;gap:8px;flex-wrap:wrap}
+.btn.danger{color:#b53e42;background:#fff3f2;border-color:#ebbdba}
+.btn.danger:hover{background:#ffe4e2}
+.multiline-detail{white-space:pre-wrap;overflow-wrap:anywhere;text-align:right;max-width:65%}
+.history-list{display:flex;flex-direction:column;gap:0}
+.history-item{padding:12px 2px;border-top:1px solid var(--line)}
+.history-item strong{display:block;font-size:11px}
+.history-item small{display:block;color:var(--muted);font-size:10px;margin-top:5px}
+.bug-toolbar{flex-wrap:wrap}
+@media(max-width:620px){.header-buttons{margin-top:10px}.multiline-detail{max-width:58%}}
