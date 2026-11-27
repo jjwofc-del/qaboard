@@ -5,26 +5,27 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="description" content="QABoard - QA test and bug management demo" />
   <title>QABoard · QA Workspace</title>
-  <link rel="stylesheet" href="src/styles.css?v=0.8.0" />
+  <link rel="stylesheet" href="src/styles.css?v=0.9.0" />
 </head>
 <body>
   <div class="app-shell">
     <aside class="sidebar">
       <div class="brand"><div class="brand-mark">Q</div><div><strong>QABoard</strong><small>QUALITY WORKSPACE</small></div></div>
-      <div class="workspace"><span class="workspace-dot"></span><span>Demo Workspace</span><span class="chevron">⌄</span></div>
-      <div class="nav-label">WORKSPACE</div>
+      <div class="workspace-switch"><label for="workspace-select">WORKSPACE SELECT</label><select id="workspace-select" aria-label="작업 공간 선택"><option value="demo">Demo Workspace</option><option value="tc">Test Case</option></select></div>
+      <div id="demo-navigation"><div class="nav-label">WORKSPACE</div>
       <nav id="navigation">
         <button class="nav-item active" data-page="dashboard"><span>▦</span> Dashboard</button>
         <button class="nav-item" data-page="projects"><span>◫</span> Projects <b id="nav-project-count">3</b></button>
         <button class="nav-item" data-page="cases"><span>☷</span> Test Cases <b id="nav-case-count">5</b></button>
         <button class="nav-item" data-page="runs"><span>▷</span> Test Runs</button>
-        <button class="nav-item" data-page="workshop"><span>✎</span> TC 작성 연습</button>
         <button class="nav-item" data-page="bugs"><span>⚑</span> Bug Management <b class="bug-count" id="nav-bug-count">5</b></button>
       </nav>
       <div class="nav-label reports-label">INSIGHTS</div>
       <button class="nav-item" data-page="reports"><span>▥</span> Reports</button>
       <div class="nav-label reports-label">DATA & PRIVACY</div>
       <button class="nav-item" data-page="settings"><span>⚙</span> Settings & Backup</button>
+      </div>
+      <div id="tc-navigation" hidden><div class="nav-label">TEST CASE WORKSPACE</div><nav id="tc-nav"><button class="nav-item" data-page="tc-hub"><span>☷</span> TC 목록 <b id="nav-tc-hub-count">0</b></button><button class="nav-item" data-page="workshop"><span>✎</span> 새 TC 작성</button></nav><div class="nav-label reports-label">WORKSPACE</div><p class="tc-nav-help">테스트 케이스를 작성·정리하고 Demo Workspace의 테스트 실행에 연결하세요.</p></div>
       <div class="sidebar-bottom"><div class="demo-card"><div class="demo-icon">✦</div><strong>Demo environment</strong><p>실제 개인정보를 입력하지 마세요. 입력 내용은 이 브라우저에 저장됩니다.</p><span class="demo-pill">SAMPLE DATA ONLY</span></div><div class="profile"><div class="avatar">QA</div><div><strong>QA Tester 01</strong><small>Demo account</small></div><span class="more">···</span></div></div>
     </aside>
     <main class="main">
@@ -37,6 +38,6 @@
   <input type="file" id="backup-file" accept=".json,application/json" hidden aria-label="QABoard 백업 파일 선택" />
   <div id="modal-root"></div>
   <div id="toast" class="toast" role="status"></div>
-  <script src="src/app.js?v=0.8.0"></script>
+  <script src="src/app.js?v=0.9.0"></script>
 </body>
 </html>

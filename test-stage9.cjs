@@ -1,0 +1,24 @@
+const fs=require('fs'),vm=require('vm'),assert=require('assert/strict');
+const code=fs.readFileSync(__dirname+'/src/app.js','utf8');
+let stored=null;const nodes={};
+const fields={project:'SHOP',suite:'결제',title:'가상 주문 합계',priority:'High',preconditions:'가상 상품',steps:'1. 주문 진입',expected:'합계 표시'};
+function node(s){return nodes[s]??=( {innerHTML:'',textContent:'',value:'',hidden:false,children:[],reportValidity(){return true},classList:{toggle(){},add(){},remove(){}},addEventListener(){},replaceChildren(){this.innerHTML='';this.children=[];}})}
+const doc={querySelector:node,querySelectorAll:()=>[],addEventListener(){}};
+const context=vm.createContext({document:doc,localStorage:{getItem:()=>stored,setItem:(k,v)=>{stored=v},removeItem:()=>stored=null},FormData:class{entries(){return Object.entries(fields)[Symbol.iterator]()}},Date,console,setTimeout(){}});
+vm.runInContext(code,context);const run=c=>vm.runInContext(c,context);
+assert.match(run('tcHub()'),/Test Case 관리/);
+assert.match(run('tcHub()'),/TC ID/);
+assert.match(run('tcHub()'),/data-tc-hub-edit/);
+assert.equal(run('data.cases.length'),5);
+run("workspaceMode='tc';page='workshop';workshopSubmit('save')");
+assert.equal(run('tcDrafts().length'),1);assert.equal(run('data.cases.length'),5);
+run("workshopSubmit('publish')");
+assert.equal(run('page'),'tc-hub');assert.equal(run('data.cases.length'),6);assert.equal(run('data.cases[0].project'),'SHOP');
+assert.match(run('tcHub()'),/가상 주문 합계/);
+run('openTcForm(data.cases[0].id)');assert.match(run('workshop()'),/가상 주문 합계/);
+fields.title='수정된 주문 합계';run("workshopSubmit('publish')");assert.equal(run('data.cases.length'),6);assert.equal(run('data.cases[0].title'),'수정된 주문 합계');
+assert.match(run('cases()'),/수정된 주문 합계/);assert.equal(run('linkedCasesFor("SHOP")'),1);
+run("workspaceMode='demo';page='dashboard';render()");assert.equal(node('#demo-navigation').hidden,false);assert.equal(node('#tc-navigation').hidden,true);
+run("workspaceMode='tc';page='tc-hub';render()");assert.equal(node('#demo-navigation').hidden,true);assert.equal(node('#tc-navigation').hidden,false);
+const html=fs.readFileSync(__dirname+'/index.html','utf8');assert.match(html,/id="workspace-select"/);assert.match(html,/id="tc-nav"/);assert.doesNotMatch(html,/data-page="workshop"[^\n]*TC 작성 연습/);
+console.log('PASS stage9 14 checks: TC hub, new, draft, publish, edit, sync, navigation, version');

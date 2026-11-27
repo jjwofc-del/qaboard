@@ -36,6 +36,8 @@ try {
  }
 } catch (_error) {localDataWarning=true;}
 let page='dashboard';
+let workspaceMode='demo';
+let selectedHubEditCaseId=null;
 let selectedProjectKey=null;
 let selectedCaseId=null;
 let selectedRunId=null;
@@ -45,6 +47,8 @@ let initialBugStatus='';
 let initialProjectStatus='';
 let projectListFilter='all';
 let selectedWorkshopDraftId=null;
+let tcHubQuery='';
+let tcHubProject='';
 let analyticsProject='';
 let analyticsDrillProject='';
 const $=s=>document.querySelector(s);
@@ -106,15 +110,27 @@ function projects(){
  ${projectTable(visible)}`;
 }
 
+// Dedicated Test Case workspace: one row per published TC, shared with Demo Workspace.
+function tcHub(){
+ const filtered=data.cases.filter(c=>(!tcHubProject||c.project===tcHubProject)&&[c.id,c.title,c.suite,projectLabel(c.project)].some(s=>String(s||'').toLowerCase().includes(tcHubQuery.toLowerCase())));
+ const drafts=tcDrafts();
+ return `${heading('TEST CASE WORKSPACE','Test Case 관리','작성한 테스트 케이스를 표로 모아 보고, 새 TC를 작성·수정할 수 있습니다.','<button type="button" class="btn primary" data-action="tc-new">＋ Add test case</button>')}
+ <div class="tc-hub-summary"><div class="tc-summary-card"><small>등록된 TC</small><strong>${data.cases.length}</strong></div><div class="tc-summary-card"><small>임시 저장</small><strong>${drafts.length}</strong></div><div class="tc-summary-card"><small>연결된 TC</small><strong>${linkedCaseTotal()}</strong></div></div>
+ <div class="tc-hub-toolbar"><input id="tc-hub-search" class="search" placeholder="TC ID, 제목, 스위트 검색" value="${esc(tcHubQuery)}" aria-label="TC 검색"/><select id="tc-hub-project" class="filter" aria-label="프로젝트 필터"><option value="">전체 프로젝트</option>${data.projects.map(p=>`<option value="${esc(p.key)}" ${tcHubProject===p.key?'selected':''}>${esc(p.name)}</option>`).join('')}</select><span>${filtered.length}개 표시</span></div>
+ <section class="panel tc-sheet"><div class="panel-head"><h3>Test Case 목록</h3><span>스프레드시트 보기 · 가로 스크롤 가능</span></div><div class="table-wrap"><table class="tc-sheet-table"><thead><tr><th>TC ID</th><th>프로젝트</th><th>스위트</th><th>테스트 케이스 제목</th><th>우선순위</th><th>사전 조건</th><th>테스트 단계</th><th>예상 결과</th><th>최근 결과</th><th>관리</th></tr></thead><tbody>${filtered.length?filtered.map(c=>`<tr><td class="case-id">${esc(c.id)}</td><td>${esc(projectLabel(c.project))}</td><td>${esc(c.suite)}</td><td class="tc-title-cell">${esc(c.title)}</td><td>${pill(c.priority)}</td><td class="tc-long-cell" title="${esc(c.preconditions||'')}">${esc(c.preconditions||'—')}</td><td class="tc-long-cell" title="${esc(c.steps||'')}">${esc(c.steps||'—')}</td><td class="tc-long-cell" title="${esc(c.expected||'')}">${esc(c.expected||'—')}</td><td>${pill(c.status||'Not Run')}</td><td><button class="btn" type="button" data-tc-hub-edit="${esc(c.id)}">보기 / 수정</button></td></tr>`).join(''):'<tr><td colspan="10" class="empty-note">표시할 테스트 케이스가 없습니다.</td></tr>'}</tbody></table></div></section>
+ ${drafts.length?`<section class="panel table-panel"><div class="panel-head"><h3>임시 저장 중인 TC</h3><span>${drafts.length}개</span></div>${drafts.map(d=>`<div class="tc-draft-row"><div><strong>${esc(d.title)}</strong><small>${esc(d.id)} · ${esc(d.suite)}</small></div><button class="btn" type="button" data-workshop-edit="${esc(d.id)}">이어 작성</button></div>`).join('')}</section>`:''}
+ <p class="analytics-note">등록한 TC는 Demo Workspace의 Test Cases에도 표시됩니다. 데이터는 현재 브라우저에만 저장되며 다른 사용자에게 자동 공유되지 않습니다.</p>`;
+}
+function openTcForm(id=null,draftId=null){selectedHubEditCaseId=id;selectedWorkshopDraftId=draftId;page='workshop';render()}
 // TC Workshop: browser-local authoring area. Publishing inserts a real local Test Case.
 const tcDrafts=()=>Array.isArray(data.tcDrafts)?data.tcDrafts:(data.tcDrafts=[]);
 function nextWorkshopId(){return 'DRAFT-'+(Math.max(0,...tcDrafts().map(d=>Number(String(d.id||'').replace('DRAFT-',''))||0))+1)}
 function nextTestCaseId(){return 'TC-'+String(Math.max(24,...data.cases.map(c=>Number(String(c.id).replace('TC-',''))||0))+1).padStart(3,'0')}
 function workshop(){
- const draft=tcDrafts().find(d=>d.id===selectedWorkshopDraftId)||{};
- return `${heading('TEST CASE PRACTICE','TC 작성 연습장','TC를 연습하고 임시 저장한 뒤 Test Cases에 등록할 수 있어요. 실제 개인정보를 입력하지 마세요.')}
+ const draft=(selectedHubEditCaseId?data.cases.find(c=>c.id===selectedHubEditCaseId):tcDrafts().find(d=>d.id===selectedWorkshopDraftId))||{};
+ return `${heading('TEST CASE WORKSPACE',selectedHubEditCaseId?'테스트 케이스 수정':'새 테스트 케이스 작성','첨부한 양식처럼 상세 정보를 입력한 뒤 등록하세요. 개인정보는 입력하지 마세요.','<button type="button" class="btn" data-action="tc-back">← TC 목록으로</button>')}
  <div class="workshop-guide"><strong>작성 가이드</strong><p>사전 조건 → 실행 단계 → 예상 결과를 구체적으로 적어보세요. 예: 쇼핑몰 장바구니에서 상품 수량을 2로 변경하면 결제 예정 금액이 올바르게 갱신된다.</p><p>등록한 TC는 이 브라우저의 Test Cases·Projects 통계에 반영되며, 다른 방문자의 화면이나 GitHub 코드에는 자동으로 게시되지 않습니다.</p></div>
- <div class="workshop-grid"><section class="panel"><div class="panel-head"><h3>${draft.id?'임시 저장 TC 수정':'새 테스트 케이스 작성'}</h3><span>${draft.id?esc(draft.id):'Draft / Publish'}</span></div>
+ <div class="workshop-grid"><section class="panel"><div class="panel-head"><h3>${selectedHubEditCaseId?'등록된 TC 수정':draft.id?'임시 저장 TC 수정':'새 테스트 케이스 작성'}</h3><span>${draft.id?esc(draft.id):'Draft / Publish'}</span></div>
  <form id="tc-workshop-form" autocomplete="off">
  <label class="field"><span>프로젝트</span><select name="project">${projectOptions(draft.project||'')}</select></label>
  <label class="field"><span>테스트 스위트 *</span><input name="suite" maxlength="80" required placeholder="예: 장바구니" value="${esc(draft.suite||'')}" /></label>
@@ -123,7 +139,7 @@ function workshop(){
  <label class="field"><span>사전 조건</span><textarea name="preconditions" maxlength="1000" rows="3" placeholder="예: 샘플 상품이 장바구니에 담겨 있다">${esc(draft.preconditions||'')}</textarea></label>
  <label class="field"><span>테스트 단계 *</span><textarea name="steps" maxlength="2000" rows="5" required placeholder="1. 장바구니 열기&#10;2. 상품 수량을 2로 변경">${esc(draft.steps||'')}</textarea></label>
  <label class="field"><span>예상 결과 *</span><textarea name="expected" maxlength="1000" rows="3" required placeholder="총 결제 금액이 수량에 맞게 갱신되어 표시된다">${esc(draft.expected||'')}</textarea></label>
- <div class="workshop-actions"><button type="button" class="btn" data-workshop-action="save">임시 저장</button><button type="button" class="btn primary" data-workshop-action="publish">Test Cases에 등록 →</button>${draft.id?'<button type="button" class="btn" data-workshop-action="clear">새 TC 작성</button>':''}</div>
+ <div class="workshop-actions">${selectedHubEditCaseId?'': '<button type="button" class="btn" data-workshop-action="save">임시 저장</button>'}<button type="button" class="btn primary" data-workshop-action="publish">${selectedHubEditCaseId?'수정 내용 저장':'TC 등록하기'}</button><button type="button" class="btn" data-action="tc-back">취소</button></div>
  </form></section>
  <aside class="panel"><div class="panel-head"><h3>내 임시 저장 목록</h3><span>${tcDrafts().length}개</span></div>${tcDrafts().length?tcDrafts().slice().reverse().map(d=>`<div class="workshop-draft"><strong>${esc(d.title)}</strong><small>${esc(projectLabel(d.project))} · ${esc(d.suite)} · ${esc(d.id)}</small><div class="workshop-actions"><button type="button" class="btn" data-workshop-edit="${esc(d.id)}">이어 쓰기</button><button type="button" class="btn" data-workshop-delete="${esc(d.id)}">삭제</button></div></div>`).join(''):'<p class="empty-note">임시 저장된 TC가 없습니다.<br>작성 후 임시 저장을 눌러보세요.</p>'}<div class="workshop-guide subtle"><strong>연습 예시</strong><p>제목: 로그인 실패 시 안내 메시지 확인</p><p>사전 조건: 가상 로그인 화면이 열려 있다</p><p>테스트 단계: 1. 잘못된 비밀번호 입력 2. 로그인 클릭</p><p>예상 결과: 오류 안내가 표시되고 로그인은 진행되지 않는다</p></div></aside></div>`;
 }
@@ -134,11 +150,12 @@ function workshopSubmit(mode){
  if(!v.title||!v.suite||!v.steps||!v.expected){toast('필수 항목을 모두 입력해 주세요.');return}
  if(v.project&&!data.projects.some(p=>p.key===v.project)){toast('유효한 프로젝트를 선택해 주세요.');return}
  if(mode==='publish'){
+  if(selectedHubEditCaseId){const current=data.cases.find(c=>c.id===selectedHubEditCaseId);if(!current){toast('TC를 찾을 수 없습니다.');return}Object.assign(current,v);save();selectedHubEditCaseId=null;selectedWorkshopDraftId=null;page='tc-hub';render();toast(current.id+' 수정했습니다.');return}
   if(!v.project){toast('Test Cases에 등록하려면 프로젝트를 선택해야 해요.');return}
   const item={id:nextTestCaseId(),title:v.title,project:v.project,suite:v.suite,priority:v.priority,preconditions:v.preconditions,steps:v.steps,expected:v.expected,status:'Not Run'};
   data.cases.unshift(item);
   if(selectedWorkshopDraftId)data.tcDrafts=tcDrafts().filter(d=>d.id!==selectedWorkshopDraftId);
-  selectedWorkshopDraftId=null;save();selectedCaseId=item.id;page='cases';render();toast(item.id+' 테스트 케이스로 등록했습니다.');return;
+  selectedWorkshopDraftId=null;save();selectedCaseId=null;page='tc-hub';render();toast(item.id+' 테스트 케이스로 등록했습니다.');return;
  }
  const drafts=tcDrafts();let d=drafts.find(x=>x.id===selectedWorkshopDraftId);
  if(d)Object.assign(d,v);else{d={id:nextWorkshopId(),...v};drafts.push(d)}
@@ -391,7 +408,7 @@ function updateNavigationCounts(){
  const ids=[['#nav-project-count',data.projects.length],['#nav-case-count',data.cases.length],['#nav-bug-count',data.bugs.length]];
  for(const [id,n] of ids){const node=$(id);if(node)node.textContent=String(n)}
 }
-function render(){const pages={dashboard,projects,cases,runs,bugs,reports,settings,workshop};$('#page-content').innerHTML=page==='projects'&&selectedProjectKey?projectDetail():page==='cases'&&selectedCaseId?caseDetail():page==='runs'&&selectedRunId?runDetail():page==='bugs'&&selectedBugId?bugDetail():pages[page]();$('#crumb').textContent=({dashboard:'Dashboard',projects:'Projects',cases:'Test Cases',runs:'Test Runs',bugs:'Bug Management',reports:'Reports',settings:'Settings & Backup',workshop:'TC 작성 연습'})[page];document.querySelectorAll('.nav-item').forEach(b=>b.classList.toggle('active',b.dataset.page===page));updateNavigationCounts();bindPage()}
+function render(){const pages={dashboard,projects,cases,runs,bugs,reports,settings,workshop,'tc-hub':tcHub};$('#demo-navigation').hidden=workspaceMode!=='demo';$('#tc-navigation').hidden=workspaceMode!=='tc';$('#workspace-select').value=workspaceMode;$('#page-content').innerHTML=page==='projects'&&selectedProjectKey?projectDetail():page==='cases'&&selectedCaseId?caseDetail():page==='runs'&&selectedRunId?runDetail():page==='bugs'&&selectedBugId?bugDetail():pages[page]();$('#crumb').textContent=({dashboard:'Dashboard',projects:'Projects',cases:'Test Cases',runs:'Test Runs',bugs:'Bug Management',reports:'Reports',settings:'Settings & Backup',workshop:'TC 작성','tc-hub':'TC 목록'})[page];document.querySelectorAll('.nav-item').forEach(b=>b.classList.toggle('active',b.dataset.page===page));const tcCount=$('#nav-tc-hub-count');if(tcCount)tcCount.textContent=String(data.cases.length);updateNavigationCounts();bindPage()}
 function toast(msg){let t=$('#toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2200)}
 function openModal(type){let cfg={
  project:{title:'새 프로젝트 만들기',desc:'가상의 QA 프로젝트를 추가합니다.',fields:[['name','프로젝트 이름','text','예: Payment Web QA'],['key','프로젝트 키','text','예: PAY'],['release','릴리즈','text','예: v1.0.0']]},
@@ -411,6 +428,8 @@ function openModal(type){let cfg={
 }
 function bindPage(){
  const w=$('#tc-workshop-form');if(w)w.addEventListener('submit',e=>{e.preventDefault();workshopSubmit('save')});
+ const hubSearch=$('#tc-hub-search');if(hubSearch)hubSearch.addEventListener('input',e=>{const pos=e.target.selectionStart;tcHubQuery=e.target.value;render();const next=$('#tc-hub-search');next?.focus();next?.setSelectionRange(pos,pos)});
+ const hubFilter=$('#tc-hub-project');if(hubFilter)hubFilter.addEventListener('change',e=>{tcHubProject=e.target.value;render()});
  let cs=$('#case-search');if(cs)cs.addEventListener('input',filterCases);
  let cf=$('#case-filter');if(cf)cf.addEventListener('change',filterCases);
  let ap=$('#analytics-project');if(ap)ap.addEventListener('change',e=>{analyticsProject=e.target.value;render()});
@@ -435,9 +454,10 @@ function openStats(action){
 }
 // One delegated handler works for buttons added AFTER the page was rendered.
 document.addEventListener('click',e=>{
+ const tcEdit=e.target.closest('[data-tc-hub-edit]');if(tcEdit){openTcForm(tcEdit.dataset.tcHubEdit);return}
  const workshopAction=e.target.closest('[data-workshop-action]');
- if(workshopAction){if(workshopAction.dataset.workshopAction==='clear'){selectedWorkshopDraftId=null;render()}else workshopSubmit(workshopAction.dataset.workshopAction);return}
- const editDraft=e.target.closest('[data-workshop-edit]');if(editDraft){selectedWorkshopDraftId=editDraft.dataset.workshopEdit;page='workshop';render();return}
+ if(workshopAction){if(workshopAction.dataset.workshopAction==='clear'){selectedWorkshopDraftId=null;selectedHubEditCaseId=null;render()}else workshopSubmit(workshopAction.dataset.workshopAction);return}
+ const editDraft=e.target.closest('[data-workshop-edit]');if(editDraft){openTcForm(null,editDraft.dataset.workshopEdit);return}
  const deleteDraft=e.target.closest('[data-workshop-delete]');if(deleteDraft){data.tcDrafts=tcDrafts().filter(d=>d.id!==deleteDraft.dataset.workshopDelete);if(selectedWorkshopDraftId===deleteDraft.dataset.workshopDelete)selectedWorkshopDraftId=null;save();render();toast('임시 저장 TC를 삭제했습니다.');return}
  const stat=e.target.closest('[data-stat-action]');if(stat){openStats(stat.dataset.statAction);return}
  const linkedBug=e.target.closest('button[data-linked-bug]');
@@ -459,6 +479,8 @@ document.addEventListener('click',e=>{
  const action=e.target.closest('[data-action]');
  if(action){const a=action.dataset.action;
   if(a==='close-modal'){$('#modal-root').replaceChildren();return}
+  if(a==='tc-new'){openTcForm();return}
+  if(a==='tc-back'){selectedHubEditCaseId=null;selectedWorkshopDraftId=null;page='tc-hub';render();return}
   if(a==='clear-project-filter'){projectListFilter='all';initialProjectStatus='';render();return}
   if(a==='export-report'){exportReport();return}
   if(a==='backup-export'){backupDownload();return}
@@ -502,6 +524,8 @@ function filterBugs(){
  $('#bug-rows').innerHTML=bugRows(filtered);$('#bug-result-count').textContent=filtered.length+' bugs';
 }
 
+$('#workspace-select').addEventListener('change',e=>{workspaceMode=e.target.value==='tc'?'tc':'demo';page=workspaceMode==='tc'?'tc-hub':'dashboard';selectedHubEditCaseId=null;selectedWorkshopDraftId=null;selectedProjectKey=null;selectedCaseId=null;selectedRunId=null;selectedBugId=null;render()});
+$('#tc-nav').addEventListener('click',e=>{const btn=e.target.closest('[data-page]');if(!btn)return;if(btn.dataset.page==='workshop')openTcForm();else{selectedHubEditCaseId=null;selectedWorkshopDraftId=null;page='tc-hub';render()}});
 $('#navigation').addEventListener('click',e=>{let b=e.target.closest('[data-page]');if(b){page=b.dataset.page;selectedProjectKey=null;selectedCaseId=null;selectedRunId=null;selectedBugId=null;initialCaseStatus='';initialBugStatus='';initialProjectStatus='';analyticsDrillProject='';render()}});
 document.querySelectorAll('.sidebar>.nav-item').forEach(b=>b.addEventListener('click',()=>{page=b.dataset.page;selectedProjectKey=null;selectedCaseId=null;selectedRunId=null;selectedBugId=null;initialCaseStatus='';initialBugStatus='';initialProjectStatus='';analyticsDrillProject='';render()}));
 render();

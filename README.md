@@ -65,3 +65,14 @@ node test-stage7.cjs
 - 작성한 연습 초안은 `data.tcDrafts`에 저장되므로 기존 `qaboard-demo` 데이터 및 JSON 백업과 함께 보관됩니다. 등록 시 기존 Test Cases 배열에 추가되어 Projects 연결 케이스 수와 메뉴 숫자 등에 반영됩니다.
 - **중요:** GitHub Pages에는 서버 DB가 없으므로, 등록은 현재 브라우저의 로컬 데이터에만 반영됩니다. 다른 사람의 화면이나 GitHub 저장소에 자동 동기화되지 않습니다.
 - 실제 이름/전화번호/이메일/주문정보 등 개인정보 입력 금지. 연습 데이터만 사용하세요.
+
+
+## v0.9.0: 작업 공간 분리 및 Test Case 전용 화면
+
+- 사이드바 상단에서 `Demo Workspace` 또는 `Test Case` 선택
+- `Test Case` 선택 시 TC 전용 홈(스프레드시트형 전체 목록)으로 전환
+- `+ Add test case`에서 상세 입력, 임시 저장, TC 등록
+- 등록한 TC는 전용 목록 및 기존 Demo Workspace의 Test Cases에 함께 표시
+- 목록에서 TC 수정, 검색, 프로젝트 필터, 임시 저장 이어 작성 가능
+- 기존 `qaboard-demo` 브라우저 저장 데이터와 JSON 백업 구조 유지
+- 개인정보 및 실제 고객 정보는 입력하지 마세요. 공개 URL의 모든 방문자가 공유하는 DB가 아니라 브라우저별 저장소입니다.
