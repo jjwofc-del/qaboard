@@ -99,3 +99,12 @@ button:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-vis
 .tc-mode .workshop-guide{background:#e9f5ff;border-color:#cfe4f7}.tc-mode .workshop-guide strong{color:#276fa5}
 .tc-result-hint{margin:4px 0 15px;color:#6789a7;font-size:11px;line-height:1.65}
 @media(max-width:620px){.workspace-switch{margin-left:-2px;margin-right:-2px}.workspace-caption{font-size:7px;letter-spacing:0}.workspace-trigger{min-height:44px;padding:5px;gap:3px;justify-content:center}.workspace-trigger-icon{width:23px;height:23px}.workspace-trigger #workspace-current{display:none}.workspace-chevron{margin-left:0;font-size:10px}.workspace-options{left:0;min-width:186px}.workspace-option strong{font-size:11px}.workspace-option small{font-size:9px}}
+
+/* v1.0.1: completed project archive */
+.project-archive-filter{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.project-view-label{display:flex;gap:9px;align-items:center;font-size:11px;font-weight:600;color:#65756c}
+.project-view-label select{min-width:210px;max-width:100%}
+.empty-project-archive{padding:32px 22px;text-align:center;margin-top:13px}
+.empty-project-archive strong{font-size:13px}
+.empty-project-archive p{font-size:11px;color:#809188;margin-bottom:0}
+@media(max-width:620px){.project-view-label{width:100%;justify-content:space-between}.project-view-label select{flex:1;min-width:0}}

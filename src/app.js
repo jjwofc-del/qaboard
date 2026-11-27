@@ -102,13 +102,22 @@ function dashboard(){
  <div class="dashboard-grid dashboard-secondary"><div class="panel"><div class="panel-head"><h3>Project coverage</h3><span>Cases linked to projects</span></div>${a.projects.map(p=>`<div class="analytics-project"><strong>${esc(p.name)}</strong><span>${linkedCasesFor(p.key)} cases · ${a.bugs.filter(b=>b.project===p.key).length} bugs</span><button class="btn" data-project-key="${esc(p.key)}">상세 보기 →</button></div>`).join('')||'<p class="empty-note">프로젝트가 없습니다.</p>'}</div><div class="panel"><div class="panel-head"><h3>Recent test runs</h3><span>최근 등록 기준</span></div>${analyticsActivity(a)}</div></div>
  ${analyticsNote(a)}`;
 }
+function projectVisibilityRows(filter=projectListFilter){
+ // Completed projects stay in data and remain accessible from the archive view.
+ if(filter==='completed')return data.projects.filter(p=>p.status==='Completed');
+ if(filter==='active')return data.projects.filter(p=>p.status==='Active');
+ return data.projects.filter(p=>p.status!=='Completed');
+}
 function projects(){
- const active=projectListFilter==='active'||initialProjectStatus==='Active';
- const visible=active?data.projects.filter(p=>p.status==='Active'):data.projects;
- return `${heading('WORKSPACE','Projects','프로젝트와 릴리즈별 QA 진행 상황을 관리합니다.','<button class="btn primary" data-action="new-project">＋ New project</button>')}
- ${stats([{label:'All projects',value:data.projects.length,icon:'◫',foot:'모든 프로젝트 보기',action:'project-all'},{label:'In progress',value:data.projects.filter(p=>p.status==='Active').length,icon:'◷',foot:'Active 프로젝트만 보기',action:'project-active'},{label:'Test cases',value:linkedCaseTotal(),icon:'☷',foot:'연결된 테스트 케이스 목록',action:'project-cases'},{label:'Tracked bugs',value:data.bugs.length,icon:'⚑',foot:'등록된 버그 목록',action:'project-bugs'}])}
- <div class="project-filter-line"><span>${active?'진행 중(Active) 프로젝트만 표시 중':'전체 프로젝트 표시 중'} · ${visible.length}개</span>${active?'<button type="button" class="btn" data-action="clear-project-filter">전체 보기</button>':''}</div>
- ${projectTable(visible)}`;
+ const view=initialProjectStatus==='Active'?'active':projectListFilter;
+ const visible=projectVisibilityRows(view);
+ const currentCount=projectVisibilityRows('all').length;
+ const completedCount=projectVisibilityRows('completed').length;
+ const descriptions={all:'전체 프로젝트 (완료 제외)',active:'진행 중 프로젝트',completed:'완료된 프로젝트 보관함'};
+ return `${heading('WORKSPACE','Projects','완료된 프로젝트는 삭제하지 않고 보관함에서 따로 확인합니다.','<button class="btn primary" data-action="new-project">＋ New project</button>')}
+ ${stats([{label:'All projects',value:currentCount,icon:'◫',foot:'완료 전 프로젝트만 표시',action:'project-all'},{label:'In progress',value:data.projects.filter(p=>p.status==='Active').length,icon:'◷',foot:'Active 프로젝트만 보기',action:'project-active'},{label:'Test cases',value:linkedCaseTotal(),icon:'☷',foot:'연결된 테스트 케이스 목록',action:'project-cases'},{label:'Tracked bugs',value:data.bugs.length,icon:'⚑',foot:'등록된 버그 목록',action:'project-bugs'}])}
+ <div class="project-filter-line project-archive-filter"><span>${descriptions[view]||descriptions.all} · ${visible.length}개</span><label class="project-view-label" for="project-view-filter">목록 선택 <select id="project-view-filter" class="filter" aria-label="프로젝트 목록 선택"><option value="all" ${view==='all'?'selected':''}>전체 프로젝트 (완료 제외) · ${currentCount}</option><option value="active" ${view==='active'?'selected':''}>진행 중 (Active)</option><option value="completed" ${view==='completed'?'selected':''}>완료된 프로젝트 · ${completedCount}</option></select></label></div>
+ ${visible.length?projectTable(visible):`<div class="panel empty-project-archive"><strong>${view==='completed'?'완료된 프로젝트가 없습니다.':'표시할 프로젝트가 없습니다.'}</strong><p>${view==='completed'?'프로젝트 상세 보기 → Edit project에서 상태를 Completed로 변경하면 이곳에 표시됩니다.':'프로젝트를 새로 만들거나 다른 목록을 선택해 주세요.'}</p></div>`}`;
 }
 
 // Dedicated Test Case workspace: one row per published TC, shared with Demo Workspace.
@@ -441,6 +450,7 @@ function bindPage(){
  let cf=$('#case-filter');if(cf)cf.addEventListener('change',filterCases);
  let ap=$('#analytics-project');if(ap)ap.addEventListener('change',e=>{analyticsProject=e.target.value;render()});
  let cpf=$('#case-project-filter');if(cpf)cpf.addEventListener('change',filterCases);
+ let projectView=$('#project-view-filter');if(projectView)projectView.addEventListener('change',e=>{projectListFilter=e.target.value;initialProjectStatus='';selectedProjectKey=null;render()});
  let bs=$('#bug-search');if(bs)bs.addEventListener('input',filterBugs);
  let bf=$('#bug-filter');if(bf)bf.addEventListener('change',filterBugs);
  for(const id of ['bug-priority-filter','bug-project-filter']){const el=$('#'+id);if(el)el.addEventListener('change',filterBugs)}
@@ -455,7 +465,7 @@ function openStats(action){
  else if(action==='cases'){page='cases'}
  else if(action==='passed-cases'){page='cases';initialCaseStatus='Pass'}
  else if(action==='open-bugs'){page='bugs';initialBugStatus='active'}
- else if(action==='active-projects'){page='projects';initialProjectStatus='Active'}
+ else if(action==='active-projects'){page='projects';projectListFilter='active';initialProjectStatus=''}
  else if(action==='reports'){page='reports'}
  render();
 }
