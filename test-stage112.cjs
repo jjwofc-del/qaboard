@@ -1,0 +1,41 @@
+const fs=require('fs'),vm=require('vm'),assert=require('node:assert/strict');
+const source=fs.readFileSync(__dirname+'/src/app.js','utf8');
+const elements={};
+function elem(id){return elements[id]??={value:'',innerHTML:'',hidden:false,textContent:'',children:[],classList:{toggle(){},add(){},remove(){}},setAttribute(){},replaceChildren(){},addEventListener(){},reportValidity(){return true}}}
+let saved='',values={};
+const document={body:{classList:{toggle(){}}},querySelector:elem,querySelectorAll:()=>[],addEventListener(){}};
+const ctx=vm.createContext({document,localStorage:{getItem(){return saved||null},setItem(_,v){saved=v},removeItem(){saved=''}},FormData:class{entries(){return Object.entries(values)[Symbol.iterator]()}},Date,console,setTimeout(){}});
+vm.runInContext(source,ctx);const run=x=>vm.runInContext(x,ctx);
+const dashboard=run('dashboard()');
+let positions=['모든 프로젝트','Test Runs','Bug Management','Reports'].map(t=>dashboard.indexOf(`label:'${t}'`));
+// stats() produces labels directly in markup, not source JS records
+positions=['모든 프로젝트','Test Runs','Bug Management','Reports'].map(t=>dashboard.indexOf(t));
+assert(positions.every(n=>n>=0)&&positions.every((v,i)=>i===0||v>positions[i-1]));
+assert.match(dashboard,/data-stat-action="project-all"/);
+assert.match(dashboard,/data-stat-action="dashboard-runs"/);
+assert.match(dashboard,/data-stat-action="dashboard-bugs"/);
+assert.match(dashboard,/data-stat-action="reports"/);
+run("tcCollections().push({id:'TCG-001',name:'결제 확인',project:'SHOP',suite:'결제',priority:'High'});selectedTcCollectionId='TCG-001';page='tc-collection';render()");
+assert.match(run('tcCollectionDetail()'),/Test Suite 이름 \/ 정보 수정/);
+assert.match(run('tcCollectionForm()'),/Test Suite 만들기|Test Suite 수정/);
+run("data.cases.unshift({id:'TC-025',title:'장바구니',suite:'결제',project:'SHOP',priority:'High',status:'Not Run',collectionId:'TCG-001',steps:'단계',expected:'결과'}); data.runs.unshift({id:'RUN-099',name:'테스트',project:'SHOP',results:[{caseId:'TC-025',title:'장바구니',result:'Fail'}]}); selectedHubEditCaseId='TC-025'; page='workshop';render()");
+assert.match(run('workshop()'),/name="caseId"/);
+values={caseId:'TC-CHECK-001',title:'장바구니 수정',suite:'결제',priority:'High',status:'Blocked',preconditions:'',steps:'1. 클릭',expected:'동작'};
+run("workshopSubmit('publish')");
+assert.equal(run('data.cases[0].id'),'TC-CHECK-001');
+assert.equal(run('data.cases[0].status'),'Blocked');
+assert.equal(run("data.runs.find(r=>r.id==='RUN-099').results[0].caseId"),'TC-CHECK-001');
+assert.equal(JSON.parse(saved).cases[0].id,'TC-CHECK-001');
+// duplicate ID should never overwrite any existing TC or run links
+run("data.cases.unshift({id:'TC-NEW',title:'임시',suite:'결제',project:'SHOP',priority:'High',status:'Pass',collectionId:'TCG-001'});selectedHubEditCaseId='TC-NEW';page='workshop';render()");
+values={...values,caseId:'TC-CHECK-001'};
+run("workshopSubmit('publish')");
+assert.equal(run('data.cases[0].id'),'TC-NEW');
+assert.equal(run("data.runs.find(r=>r.id==='RUN-099').results[0].caseId"),'TC-CHECK-001');
+assert.equal(run('tcGroupById("TCG-001").name'),'결제 확인');
+run('tcGroupById("TCG-001").name="결제 테스트 모음"; save()');
+assert.match(run('tcCollectionDetail()'),/결제 테스트 모음/);
+const css=fs.readFileSync(__dirname+'/src/styles.css','utf8');
+assert.match(css,/\.tc-mode \.tc-detail-table\{min-width:1550px/);
+assert.match(css,/\.tc-mode \.tc-detail-table td\{font-size:11px/);
+console.log('PASS: Dashboard card order and targets; Suite name editing; TC ID validation/uniqueness; Test Run reference migration; saved data; table typography');

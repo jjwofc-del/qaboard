@@ -122,3 +122,18 @@ button:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-vis
 /* v1.1.1 - Clickable Test Suite rows */
 .tc-collection-table tbody .tc-suite-row{cursor:pointer;transition:background .15s ease}
 .tc-mode .tc-collection-table tbody .tc-suite-row:hover,.tc-mode .tc-collection-table tbody .tc-suite-row:focus-visible{background:#e5f2ff;outline:2px solid #3686ce;outline-offset:-2px}
+
+
+/* v1.1.2 — more readable detailed TC spreadsheet, wider columns */
+.tc-mode .tc-detail-table{min-width:1550px;table-layout:auto}
+.tc-mode .tc-detail-table th{font-size:11px;padding:17px 16px;white-space:nowrap;letter-spacing:.15px}
+.tc-mode .tc-detail-table td{font-size:11px;line-height:1.75;padding:17px 16px;vertical-align:middle}
+.tc-mode .tc-detail-table .tc-title-cell{min-width:245px}
+.tc-mode .tc-detail-table .tc-long-cell{min-width:205px;max-width:310px;line-height:1.75}
+.tc-mode .tc-detail-table td:first-child{min-width:105px}
+.tc-mode .tc-detail-table td:nth-child(3){min-width:135px}
+.tc-mode .tc-detail-table td:nth-child(4),.tc-mode .tc-detail-table td:nth-child(8){min-width:120px}
+.tc-mode .tc-detail-table td:last-child{min-width:112px}
+.tc-mode .tc-detail-table .status{font-size:10px}
+.tc-edit-help{display:block;color:#6683a1;font-size:11px;line-height:1.65;margin-top:6px}
+@media(max-width:620px){.tc-mode .tc-detail-table{min-width:1450px}.tc-mode .tc-detail-table th,.tc-mode .tc-detail-table td{padding:14px 12px}}

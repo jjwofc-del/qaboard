@@ -31,3 +31,12 @@
 - [ ] 브라우저를 강력 새로고침한 후에도 변경한 데이터가 유지된다.
 
 테스트 실패 시 UI 화면, 동작 순서, 예상/실제 결과만 공유하며 실제 고객 데이터는 공유하지 마세요.
+
+
+## v1.1.2 checks
+- [ ] Edit a detailed TC ID; it appears under the new ID after refreshing.
+- [ ] Duplicate TC ID is rejected without losing the current data.
+- [ ] Renamed TC ID updates its reference in a previously created Test Run.
+- [ ] Test Suite name can be edited from the Suite detail screen.
+- [ ] Detailed TC table is wider and easier to read, with horizontal scroll.
+- [ ] Dashboard cards appear in the order Projects, Test Runs, Bug Management, Reports and navigate correctly.

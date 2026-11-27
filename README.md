@@ -30,3 +30,11 @@ GitHub Pages에서 바로 배포할 수 있는 정적 웹앱입니다.
 4. 세부 TC 등록 → 목록에 행 추가, 재수정/최근 결과 변경, 새로고침 확인
 5. 기존 케이스 → `기존 TC` 묶음에서 유지 확인
 6. Test Runs, Bug Management, Reports, Backup 기능 회귀 확인
+
+
+## v1.1.2 — TC and Dashboard refinements
+- Edit TC ID in detailed TC edit screen. Duplicate IDs are blocked and matching Test Run case references are updated.
+- Edit Test Suite name and default settings using `Test Suite 이름 / 정보 수정` in the Suite detail view.
+- Detailed TC table has wider columns, taller rows and slightly larger text. Horizontal scrolling is available.
+- Dashboard cards now follow the navigation order: 모든 프로젝트, Test Runs, Bug Management, Reports. Each opens its corresponding area.
+- Existing localStorage data is not reset. Export JSON via Settings & Backup before upgrading.

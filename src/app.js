@@ -99,7 +99,7 @@ function analyticsActivity(a){
 function dashboard(){
  const a=analyticsFor(analyticsProject);
  return `${heading('QUALITY OVERVIEW','QA Dashboard','등록된 데모 프로젝트의 실제 테스트 실행 결과와 버그 현황입니다.',analyticsSelector())}
- ${stats([{label:'Test cases',value:a.cases.length,icon:'☷',foot:'등록된 테스트 케이스',action:'cases'},{label:'Pass rate',value:a.passRate===null?'—':a.passRate+'%',icon:'✓',foot:'실행된 체크 '+a.executed+'건',action:'reports'},{label:'Open bugs',value:a.activeBugs,icon:'⚑',foot:'Open + In Progress',action:'open-bugs'},{label:'Active projects',value:a.projects.filter(p=>p.status==='Active').length,icon:'◫',foot:'Active 상태 프로젝트',action:'active-projects'}])}
+ ${stats([{label:'모든 프로젝트',value:a.projects.filter(p=>p.status!=='Completed').length,icon:'◫',foot:'완료 전 프로젝트 보기',action:'project-all'},{label:'Test Runs',value:a.totalRuns,icon:'▷',foot:'테스트 실행 목록 보기',action:'dashboard-runs'},{label:'Bug Management',value:a.bugs.length,icon:'⚑',foot:'등록된 버그 보기',action:'dashboard-bugs'},{label:'Reports',value:a.passRate===null?'—':a.passRate+'%',icon:'▥',foot:'품질 리포트 · Pass rate',action:'reports'}])}
  <div class="dashboard-grid"><div class="panel"><div class="panel-head"><h3>Test execution results</h3><span>${a.runs.length} tracked runs</span></div>${breakdownBars([['Pass',a.counts.Pass,'#33956d'],['Fail',a.counts.Fail,'#d65b5b'],['Blocked',a.counts.Blocked,'#e4a64d'],['Not Run',a.counts['Not Run'],'#92a6ba']],a.runs.reduce((sum,r)=>sum+r.results.length,0))}</div><div class="panel"><div class="panel-head"><h3>Bug status</h3><span>${a.bugs.length} bugs</span></div>${breakdownBars(['Open','In Progress','Resolved','Closed'].map((st,i)=>[st,a.bugs.filter(b=>b.status===st).length,['#d65b5b','#e4a64d','#33956d','#92a6ba'][i]]),a.bugs.length)}</div></div>
  <div class="dashboard-grid dashboard-secondary"><div class="panel"><div class="panel-head"><h3>Project coverage</h3><span>Cases linked to projects</span></div>${a.projects.map(p=>`<div class="analytics-project"><strong>${esc(p.name)}</strong><span>${linkedCasesFor(p.key)} cases · ${a.bugs.filter(b=>b.project===p.key).length} bugs</span><button class="btn" data-project-key="${esc(p.key)}">상세 보기 →</button></div>`).join('')||'<p class="empty-note">프로젝트가 없습니다.</p>'}</div><div class="panel"><div class="panel-head"><h3>Recent test runs</h3><span>최근 등록 기준</span></div>${analyticsActivity(a)}</div></div>
  ${analyticsNote(a)}`;
@@ -166,13 +166,27 @@ function tcCollectionDetail(){
  const group=tcGroupInfo(selectedTcCollectionId);if(!group){selectedTcCollectionId=null;return tcHub()}
  const cases=tcCasesInGroup(group);
  return `${heading('TEST CASE WORKSPACE',esc(group.name),'Test Suite에 속한 세부 테스트 케이스를 관리합니다.','<button class="btn primary" type="button" data-action="tc-add-detail" '+(group.project?'':'disabled title="프로젝트를 먼저 연결해 주세요"')+'>＋ Add detail TC</button>')}
- <div class="tc-collection-banner"><div><small>소속 프로젝트 · 변경 불가</small><strong>${esc(projectLabel(group.project))}</strong><span>${esc(group.suite||'세부 분류 미지정')} · 세부 TC ${cases.length}건</span></div><div class="tc-collection-actions"><button class="btn" data-action="tc-back">← Suite 목록</button>${!group.legacy?'<button class="btn" data-action="tc-edit-group">Suite 수정</button>':''}</div></div>
- <section class="panel tc-sheet"><div class="panel-head"><h3>세부 TC 목록</h3><span>스프레드시트형 목록 · 프로젝트 고정</span></div><div class="table-wrap"><table class="tc-sheet-table"><thead><tr><th>TC ID</th><th>제목</th><th>스위트</th><th>우선순위</th><th>사전 조건</th><th>테스트 단계</th><th>예상 결과</th><th>최근 결과</th><th>관리</th></tr></thead><tbody>${cases.length?cases.map(c=>`<tr><td class="case-id">${esc(c.id)}</td><td class="tc-title-cell">${esc(c.title)}</td><td>${esc(c.suite)}</td><td>${pill(c.priority)}</td><td class="tc-long-cell">${esc(c.preconditions||'—')}</td><td class="tc-long-cell">${esc(c.steps||'—')}</td><td class="tc-long-cell">${esc(c.expected||'—')}</td><td>${pill(c.status||'Not Run')}</td><td><button type="button" class="btn" data-tc-hub-edit="${esc(c.id)}">보기 / 수정</button></td></tr>`).join(''):'<tr><td class="empty-note" colspan="9">세부 TC가 없습니다. Add detail TC로 첫 항목을 등록해 보세요.</td></tr>'}</tbody></table></div></section>`;
+ <div class="tc-collection-banner"><div><small>소속 프로젝트 · 변경 불가</small><strong>${esc(projectLabel(group.project))}</strong><span>${esc(group.suite||'세부 분류 미지정')} · 세부 TC ${cases.length}건</span></div><div class="tc-collection-actions"><button class="btn" data-action="tc-back">← Suite 목록</button>${!group.legacy?'<button class="btn" data-action="tc-edit-group">Test Suite 이름 / 정보 수정</button>':''}</div></div>
+ <section class="panel tc-sheet"><div class="panel-head"><h3>세부 TC 목록</h3><span>스프레드시트형 목록 · 프로젝트 고정</span></div><div class="table-wrap"><table class="tc-sheet-table tc-detail-table"><thead><tr><th>TC ID</th><th>제목</th><th>스위트</th><th>우선순위</th><th>사전 조건</th><th>테스트 단계</th><th>예상 결과</th><th>최근 결과</th><th>관리</th></tr></thead><tbody>${cases.length?cases.map(c=>`<tr><td class="case-id">${esc(c.id)}</td><td class="tc-title-cell">${esc(c.title)}</td><td>${esc(c.suite)}</td><td>${pill(c.priority)}</td><td class="tc-long-cell">${esc(c.preconditions||'—')}</td><td class="tc-long-cell">${esc(c.steps||'—')}</td><td class="tc-long-cell">${esc(c.expected||'—')}</td><td>${pill(c.status||'Not Run')}</td><td><button type="button" class="btn" data-tc-hub-edit="${esc(c.id)}">보기 / 수정</button></td></tr>`).join(''):'<tr><td class="empty-note" colspan="9">세부 TC가 없습니다. Add detail TC로 첫 항목을 등록해 보세요.</td></tr>'}</tbody></table></div></section>`;
 }
 function openTcForm(id=null,draftId=null){selectedHubEditCaseId=id;selectedWorkshopDraftId=draftId;page='workshop';render()}
 const tcDrafts=()=>Array.isArray(data.tcDrafts)?data.tcDrafts:(data.tcDrafts=[]);
 function nextWorkshopId(){return 'DRAFT-'+(Math.max(0,...tcDrafts().map(d=>Number(String(d.id||'').replace('DRAFT-',''))||0))+1)}
-function nextTestCaseId(){return 'TC-'+String(Math.max(24,...data.cases.map(c=>Number(String(c.id).replace('TC-',''))||0))+1).padStart(3,'0')}
+// Keep Test Run references in sync when a Test Case identifier is changed.
+// Run results remain historical snapshots; only their foreign-key-like caseId changes.
+function renameTestCaseId(current,newId){
+ const clean=String(newId||'').trim();
+ if(!/^[A-Za-z0-9]+(?:[-_][A-Za-z0-9]+)*$/.test(clean)||clean.length>40)return {ok:false,error:'TC ID는 영문·숫자·-·_만 사용하고 40자 이하여야 합니다.'};
+ if(data.cases.some(c=>c!==current&&String(c.id).toLowerCase()===clean.toLowerCase()))return {ok:false,error:'이미 사용 중인 TC ID입니다.'};
+ const previous=current.id;
+ if(previous===clean)return {ok:true};
+ current.id=clean;
+ for(const run of data.runs){if(!Array.isArray(run.results))continue;for(const item of run.results){if(item.caseId===previous)item.caseId=clean}}
+ if(selectedCaseId===previous)selectedCaseId=clean;
+ if(selectedHubEditCaseId===previous)selectedHubEditCaseId=clean;
+ return {ok:true};
+}
+function nextTestCaseId(){return 'TC-'+String(Math.max(24,...data.cases.map(c=>/^TC-\d+$/.test(String(c.id))?Number(String(c.id).slice(3)):0))+1).padStart(3,'0')}
 function workshop(){
  const group=tcGroupInfo(selectedTcCollectionId);
  if(!group)return tcHub();
@@ -181,6 +195,7 @@ function workshop(){
  <div class="tc-collection-banner"><div><small>소속 Test Suite</small><strong>${esc(group.name)}</strong><span>프로젝트: ${esc(projectLabel(group.project))} · Suite에서 고정</span></div></div>
  <section class="panel tc-collection-form"><div class="panel-head"><h3>${selectedHubEditCaseId?'세부 테스트 케이스 수정':'새 세부 테스트 케이스 작성'}</h3><span>${esc(draft.id||'Draft / Publish')}</span></div>
  <form id="tc-workshop-form" autocomplete="off">
+ ${selectedHubEditCaseId?`<label class="field"><span>TC ID *</span><input name="caseId" maxlength="40" required value="${esc(draft.id||'')}" pattern="[A-Za-z0-9]+([-_][A-Za-z0-9]+)*" title="영문·숫자·하이픈(-)·밑줄(_)만 사용할 수 있습니다"/><small class="tc-edit-help">TC ID를 변경하면 연결된 Test Run의 케이스 참조도 함께 갱신됩니다. 중복 ID는 저장할 수 없습니다.</small></label>`:''}
  <label class="field"><span>프로젝트 (Suite에서 지정)</span><input readonly value="${esc(projectLabel(group.project))}" aria-label="고정 프로젝트" /></label>
  <label class="field"><span>테스트 스위트 *</span><input name="suite" required maxlength="80" value="${esc(draft.suite||group.suite||'')}" placeholder="예: 결제"/></label>
  <label class="field"><span>테스트 케이스 제목 *</span><input name="title" required maxlength="100" value="${esc(draft.title||'')}" placeholder="예: 결제 실패 안내 확인"/></label>
@@ -205,6 +220,9 @@ function workshopSubmit(mode){
   if(selectedHubEditCaseId){
    const current=data.cases.find(c=>c.id===selectedHubEditCaseId&&tcCasesInGroup(group).some(item=>item.id===c.id));
    if(!current){toast('수정할 TC를 찾을 수 없습니다.');return}
+   const rename=renameTestCaseId(current,v.caseId);
+   if(!rename.ok){toast(rename.error);return}
+   delete v.caseId;
    Object.assign(current,v);save();selectedHubEditCaseId=null;page='tc-collection';render();toast('세부 TC를 수정했습니다.');return;
   }
   const item={id:nextTestCaseId(),...v,status:'Not Run',collectionId:group.legacy?undefined:group.id};
@@ -239,6 +257,7 @@ function openEditCase(){
  const c=data.cases.find(x=>x.id===selectedCaseId);if(!c)return;
  $('#modal-root').innerHTML=`<div class="modal-backdrop"><form class="modal" id="edit-case-form">
  <h2>테스트 케이스 수정</h2><p>${esc(c.id)} · 가상의 테스트 시나리오만 입력해 주세요.</p>
+ <label class="field"><span>TC ID *</span><input name="caseId" value="${esc(c.id)}" required maxlength="40" pattern="[A-Za-z0-9]+([-_][A-Za-z0-9]+)*" /></label>
  <label class="field"><span>제목</span><input name="title" value="${esc(c.title)}" maxlength="100" required /></label>
  <label class="field"><span>프로젝트</span><select name="project">${projectOptions(c.project)}</select></label>
  <label class="field"><span>Test suite</span><input name="suite" value="${esc(c.suite)}" maxlength="80" required /></label>
@@ -251,6 +270,8 @@ function openEditCase(){
   e.preventDefault();const v=Object.fromEntries(new FormData(e.currentTarget).entries());
   if(!v.title.trim()||!v.suite.trim()){toast('제목과 테스트 스위트를 입력하세요.');return}
   if(v.project&&!data.projects.some(p=>p.key===v.project)){toast('유효한 프로젝트를 선택해 주세요.');return}
+  const rename=renameTestCaseId(c,v.caseId);
+  if(!rename.ok){toast(rename.error);return}
   c.title=v.title.trim();c.suite=v.suite.trim();c.priority=v.priority;c.project=v.project;
   c.preconditions=v.preconditions.trim();c.steps=v.steps.trim();c.expected=v.expected.trim();
   save();$('#modal-root').replaceChildren();render();toast('테스트 케이스 수정 내용을 저장했습니다.');
@@ -516,6 +537,8 @@ function openStats(action){
  else if(action==='project-active'){page='projects';projectListFilter='active';analyticsDrillProject=''}
  else if(action==='project-cases'){activateWorkspace('tc');return}
  else if(action==='project-bugs'){page='bugs';analyticsDrillProject=''}
+ else if(action==='dashboard-runs'){page='runs';selectedRunId=null;analyticsDrillProject=''}
+ else if(action==='dashboard-bugs'){page='bugs';selectedBugId=null;analyticsDrillProject=''}
  else if(action==='cases'){activateWorkspace('tc');tcHubProject=analyticsProject;render();return}
  else if(action==='passed-cases'){page='cases';initialCaseStatus='Pass'}
  else if(action==='open-bugs'){page='bugs';initialBugStatus='active'}
