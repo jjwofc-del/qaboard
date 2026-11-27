@@ -134,7 +134,21 @@ function runDetail(){
  <div class="detail-row"><span>Pass / Fail / Blocked</span><strong>${n.passed} / ${n.failed} / ${n.blocked}</strong></div>
  ${!isLegacy?`<div class="detail-row"><span>Not Run</span><strong>${n.notRun}</strong></div>`:''}<div class="detail-row"><span>QA 결과 (집계)</span><strong>${outcomePill(run)}</strong></div></div>
  ${isLegacy?`<div class="panel"><h3>이전 버전 샘플 실행</h3><p class="muted">이 실행은 기존 샘플 통계만 있고 케이스별 결과 기록이 없습니다. 원본 통계를 보존하기 위해 읽기 전용으로 표시해요. 케이스별 기록은 새 Test Run을 만들어 시작해 주세요.</p></div>`:
- `<div class="panel"><div class="panel-head"><h3>Test results</h3><span>${run.results.length} cases · 프로젝트 연결 당시의 목록</span></div><div class="table-wrap"><table><thead><tr><th>CASE ID</th><th>TEST CASE</th><th>RESULT</th><th>CHANGE RESULT</th></tr></thead><tbody>${run.results.map(r=>`<tr><td class="case-id">${esc(r.caseId)}</td><td class="project-name">${esc(r.title)}</td><td>${r.result==='Not Run'?'<span class="status low">Not Run</span>':pill(r.result)}</td><td><select class="filter run-result" data-run-id="${esc(run.id)}" data-case-id="${esc(r.caseId)}" aria-label="${esc(r.caseId)} 결과 변경">${['Not Run','Pass','Fail','Blocked'].map(v=>`<option value="${v}" ${r.result===v?'selected':''}>${v}</option>`).join('')}</select></td></tr>`).join('')}</tbody></table></div></div>`}`;
+ `<div class="panel"><div class="panel-head"><h3>Test results</h3><span>${run.results.length} cases · 프로젝트 연결 당시의 목록</span></div><div class="table-wrap"><table><thead><tr><th>CASE ID</th><th>TEST CASE</th><th>RESULT</th><th>CHANGE RESULT</th><th>LINKED BUG</th></tr></thead><tbody>${run.results.map(r=>{const linked=data.bugs.find(b=>b.id===r.bugId);return `<tr><td class="case-id">${esc(r.caseId)}</td><td class="project-name">${esc(r.title)}</td><td>${r.result==='Not Run'?'<span class="status low">Not Run</span>':pill(r.result)}</td><td><select class="filter run-result" data-run-id="${esc(run.id)}" data-case-id="${esc(r.caseId)}" aria-label="${esc(r.caseId)} 결과 변경">${['Not Run','Pass','Fail','Blocked'].map(v=>`<option value="${v}" ${r.result===v?'selected':''}>${v}</option>`).join('')}</select></td><td>${linked?`<button type="button" class="btn" data-linked-bug="${esc(linked.id)}">${esc(linked.id)} 상세 →</button> <button type="button" class="btn" data-unlink-bug="${esc(run.id)}" data-unlink-case="${esc(r.caseId)}">연결 해제</button>`:r.result==='Fail'?`<button type="button" class="btn" data-link-bug="${esc(run.id)}" data-link-case="${esc(r.caseId)}">＋ 버그 연결</button>`:'<span class="muted">—</span>'}</td></tr>`}).join('')}</tbody></table></div></div>`}`;
+}
+// Link a failed run result to a defect. Existing results and bug records are kept intact.
+function openLinkBug(runId,caseId){
+ const run=data.runs.find(r=>r.id===runId);
+ const result=run?.results?.find(r=>r.caseId===caseId);
+ if(!result||result.result!=='Fail'){toast('Fail 결과만 버그에 연결할 수 있습니다.');return}
+ const matches=data.bugs.filter(b=>b.project===run.project);
+ $('#modal-root').innerHTML=`<div class="modal-backdrop"><form class="modal" id="link-bug-form"><h2>실패한 테스트와 버그 연결</h2><p>${esc(caseId)} · ${esc(result.title)}<br>기존 버그를 선택하거나 새 버그 제목을 작성하세요. 가상 데이터만 입력하세요.</p><label class="field"><span>기존 버그 연결</span><select name="existing"><option value="">선택하지 않음</option>${matches.map(b=>`<option value="${esc(b.id)}">${esc(b.id)} · ${esc(b.title)}</option>`).join('')}</select></label><label class="field"><span>새 버그 생성 (제목 입력 시 기존 선택보다 우선)</span><input name="title" maxlength="100" placeholder="예: 장바구니 수량 변경 오류" /></label><label class="field"><span>새 버그 우선순위</span><select name="priority"><option>Medium</option><option>High</option><option>Low</option></select></label><div class="modal-actions"><button type="button" class="btn" data-action="close-modal">취소</button><button type="submit" class="btn primary">연결 저장</button></div></form></div>`;
+ $('#link-bug-form').addEventListener('submit',e=>{
+  e.preventDefault();const v=Object.fromEntries(new FormData(e.currentTarget).entries());const title=v.title.trim();let bugId=v.existing;
+  if(title){const id=Math.max(105,...data.bugs.map(b=>Number(String(b.id).replace('BUG-',''))||0))+1;bugId='BUG-'+id;data.bugs.unshift({id:bugId,title,project:run.project,priority:v.priority,status:'Open',owner:'QA Tester 01',description:'',steps:''});}
+  else if(!matches.some(b=>b.id===bugId)){toast('기존 버그를 선택하거나 새 버그 제목을 입력해 주세요.');return}
+  result.bugId=bugId;save();$('#modal-root').replaceChildren();render();toast(bugId+' 버그 연결 완료');
+ });
 }
 function bugs(){return `${heading('ISSUE TRACKING','Bug Management','발견된 결함을 기록하고 수정 상태를 추적합니다.','<button class="btn primary" data-action="new-bug">＋ Create bug</button>')}<div class="toolbar"><input class="search" id="bug-search" placeholder="⌕  버그 제목 또는 ID 검색..." /><select class="filter" id="bug-filter"><option value="">All status</option><option ${initialBugStatus==='active'?'selected':''} value="active">Open + In Progress</option><option>Open</option><option>In Progress</option><option>Resolved</option><option>Closed</option></select></div><div class="panel"><div class="table-wrap"><table><thead><tr><th>BUG ID</th><th>SUMMARY</th><th>PROJECT</th><th>PRIORITY</th><th>ASSIGNEE</th><th>STATUS</th><th>CHANGE</th><th>DETAILS</th></tr></thead><tbody id="bug-rows">${bugRows(initialBugStatus==='active'?data.bugs.filter(b=>['Open','In Progress'].includes(b.status)):data.bugs)}</tbody></table></div></div>`}
 function bugRows(rows){return rows.length?rows.map(b=>`<tr><td class="bug-id">${esc(b.id)}</td><td class="project-name">${esc(b.title)}</td><td>${esc(b.project)}</td><td>${pill(b.priority)}</td><td>${esc(b.owner)}</td><td>${pill(b.status)}</td><td><select class="filter bug-status" data-id="${esc(b.id)}" aria-label="${esc(b.id)} 상태 변경">${['Open','In Progress','Resolved','Closed'].map(s=>`<option ${s===b.status?'selected':''}>${s}</option>`).join('')}</select></td><td><button type="button" class="btn" data-bug-id="${esc(b.id)}">상세 보기 →</button></td></tr>`).join(''):'<tr><td colspan="8" class="empty-note">검색 결과가 없습니다.</td></tr>'}
@@ -186,6 +200,12 @@ function openStats(action){
 // One delegated handler works for buttons added AFTER the page was rendered.
 document.addEventListener('click',e=>{
  const stat=e.target.closest('[data-stat-action]');if(stat){openStats(stat.dataset.statAction);return}
+ const linkedBug=e.target.closest('button[data-linked-bug]');
+ if(linkedBug){selectedBugId=linkedBug.dataset.linkedBug;selectedRunId=null;page='bugs';render();return}
+ const unlink=e.target.closest('button[data-unlink-bug]');
+ if(unlink){const r=data.runs.find(x=>x.id===unlink.dataset.unlinkBug);const item=r?.results?.find(x=>x.caseId===unlink.dataset.unlinkCase);if(item){delete item.bugId;save();render();toast('버그 연결이 해제되었습니다.')}return}
+ const link=e.target.closest('button[data-link-bug]');
+ if(link){openLinkBug(link.dataset.linkBug,link.dataset.linkCase);return}
  const bugButton=e.target.closest('button[data-bug-id]');
  if(bugButton){selectedBugId=bugButton.dataset.bugId;page='bugs';render();return}
  const caseButton=e.target.closest('button[data-case-id]');
