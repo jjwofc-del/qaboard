@@ -38,3 +38,11 @@ GitHub Pages에서 바로 배포할 수 있는 정적 웹앱입니다.
 - Detailed TC table has wider columns, taller rows and slightly larger text. Horizontal scrolling is available.
 - Dashboard cards now follow the navigation order: 모든 프로젝트, Test Runs, Bug Management, Reports. Each opens its corresponding area.
 - Existing localStorage data is not reset. Export JSON via Settings & Backup before upgrading.
+
+
+## v1.1.3 개선
+- Test Case 첫 화면(Test Suite 목록)에만 글씨 크기·행 높이·열 너비 조정; 목록 가로 스크롤 제거 (좁은 화면은 자동 줄바꿈).
+- 세부 TC 목록은 v1.1.1의 표 크기로 복원.
+- Projects, Test Cases, Test Runs, Bugs, 세부 TC 목록에서 행을 클릭하면 상세 화면 열기.
+- 목록 행의 버튼/드롭다운은 기존 동작을 유지하며 키보드 Enter/Space로도 상세 페이지 열기.
+- 저장 데이터 구조를 바꾸지 않아 기존 localStorage 데이터 유지.
