@@ -22,5 +22,5 @@ run('resetDemo()');
 ok('reset returns original demo content','data.projects.length===3 && data.bugs.length===5 && data.cases.length===5');
 assert.equal(saved,null);console.log('PASS local data cleared during reset');
 // saved data compatibility
-assert.equal(fs.readFileSync(__dirname+'/index.html','utf8').includes('src/app.js?v=0.7.0'),true);console.log('PASS cache bust version');
+assert.equal(fs.readFileSync(__dirname+'/index.html','utf8').includes('src/app.js?v=0.8.0'),true);console.log('PASS cache bust version');
 console.log('STAGE 7 TESTS COMPLETE');

@@ -43,6 +43,8 @@ let selectedBugId=null;
 let initialCaseStatus='';
 let initialBugStatus='';
 let initialProjectStatus='';
+let projectListFilter='all';
+let selectedWorkshopDraftId=null;
 let analyticsProject='';
 let analyticsDrillProject='';
 const $=s=>document.querySelector(s);
@@ -95,7 +97,53 @@ function dashboard(){
  <div class="dashboard-grid dashboard-secondary"><div class="panel"><div class="panel-head"><h3>Project coverage</h3><span>Cases linked to projects</span></div>${a.projects.map(p=>`<div class="analytics-project"><strong>${esc(p.name)}</strong><span>${linkedCasesFor(p.key)} cases · ${a.bugs.filter(b=>b.project===p.key).length} bugs</span><button class="btn" data-project-key="${esc(p.key)}">상세 보기 →</button></div>`).join('')||'<p class="empty-note">프로젝트가 없습니다.</p>'}</div><div class="panel"><div class="panel-head"><h3>Recent test runs</h3><span>최근 등록 기준</span></div>${analyticsActivity(a)}</div></div>
  ${analyticsNote(a)}`;
 }
-function projects(){return `${heading('WORKSPACE','Projects','프로젝트와 릴리즈별 QA 진행 상황을 관리합니다.','<button class="btn primary" data-action="new-project">＋ New project</button>')}${stats([{label:'All projects',value:data.projects.length,icon:'◫',foot:'전체 데모 프로젝트'},{label:'In progress',value:data.projects.filter(p=>p.status==='Active').length,icon:'◷',foot:'진행 중인 프로젝트'},{label:'Test cases',value:linkedCaseTotal(),icon:'☷',foot:'실제로 프로젝트에 연결된 케이스'},{label:'Tracked bugs',value:data.bugs.length,icon:'⚑',foot:'프로젝트별 버그 합계'}])}${projectTable(initialProjectStatus?data.projects.filter(p=>p.status===initialProjectStatus):data.projects)}`}
+function projects(){
+ const active=projectListFilter==='active'||initialProjectStatus==='Active';
+ const visible=active?data.projects.filter(p=>p.status==='Active'):data.projects;
+ return `${heading('WORKSPACE','Projects','프로젝트와 릴리즈별 QA 진행 상황을 관리합니다.','<button class="btn primary" data-action="new-project">＋ New project</button>')}
+ ${stats([{label:'All projects',value:data.projects.length,icon:'◫',foot:'모든 프로젝트 보기',action:'project-all'},{label:'In progress',value:data.projects.filter(p=>p.status==='Active').length,icon:'◷',foot:'Active 프로젝트만 보기',action:'project-active'},{label:'Test cases',value:linkedCaseTotal(),icon:'☷',foot:'연결된 테스트 케이스 목록',action:'project-cases'},{label:'Tracked bugs',value:data.bugs.length,icon:'⚑',foot:'등록된 버그 목록',action:'project-bugs'}])}
+ <div class="project-filter-line"><span>${active?'진행 중(Active) 프로젝트만 표시 중':'전체 프로젝트 표시 중'} · ${visible.length}개</span>${active?'<button type="button" class="btn" data-action="clear-project-filter">전체 보기</button>':''}</div>
+ ${projectTable(visible)}`;
+}
+
+// TC Workshop: browser-local authoring area. Publishing inserts a real local Test Case.
+const tcDrafts=()=>Array.isArray(data.tcDrafts)?data.tcDrafts:(data.tcDrafts=[]);
+function nextWorkshopId(){return 'DRAFT-'+(Math.max(0,...tcDrafts().map(d=>Number(String(d.id||'').replace('DRAFT-',''))||0))+1)}
+function nextTestCaseId(){return 'TC-'+String(Math.max(24,...data.cases.map(c=>Number(String(c.id).replace('TC-',''))||0))+1).padStart(3,'0')}
+function workshop(){
+ const draft=tcDrafts().find(d=>d.id===selectedWorkshopDraftId)||{};
+ return `${heading('TEST CASE PRACTICE','TC 작성 연습장','TC를 연습하고 임시 저장한 뒤 Test Cases에 등록할 수 있어요. 실제 개인정보를 입력하지 마세요.')}
+ <div class="workshop-guide"><strong>작성 가이드</strong><p>사전 조건 → 실행 단계 → 예상 결과를 구체적으로 적어보세요. 예: 쇼핑몰 장바구니에서 상품 수량을 2로 변경하면 결제 예정 금액이 올바르게 갱신된다.</p><p>등록한 TC는 이 브라우저의 Test Cases·Projects 통계에 반영되며, 다른 방문자의 화면이나 GitHub 코드에는 자동으로 게시되지 않습니다.</p></div>
+ <div class="workshop-grid"><section class="panel"><div class="panel-head"><h3>${draft.id?'임시 저장 TC 수정':'새 테스트 케이스 작성'}</h3><span>${draft.id?esc(draft.id):'Draft / Publish'}</span></div>
+ <form id="tc-workshop-form" autocomplete="off">
+ <label class="field"><span>프로젝트</span><select name="project">${projectOptions(draft.project||'')}</select></label>
+ <label class="field"><span>테스트 스위트 *</span><input name="suite" maxlength="80" required placeholder="예: 장바구니" value="${esc(draft.suite||'')}" /></label>
+ <label class="field"><span>테스트 케이스 제목 *</span><input name="title" maxlength="100" required placeholder="예: 수량 변경 시 합계가 갱신되는지 확인" value="${esc(draft.title||'')}" /></label>
+ <label class="field"><span>우선순위</span><select name="priority">${['Low','Medium','High'].map(v=>`<option ${v===(draft.priority||'Medium')?'selected':''}>${v}</option>`).join('')}</select></label>
+ <label class="field"><span>사전 조건</span><textarea name="preconditions" maxlength="1000" rows="3" placeholder="예: 샘플 상품이 장바구니에 담겨 있다">${esc(draft.preconditions||'')}</textarea></label>
+ <label class="field"><span>테스트 단계 *</span><textarea name="steps" maxlength="2000" rows="5" required placeholder="1. 장바구니 열기&#10;2. 상품 수량을 2로 변경">${esc(draft.steps||'')}</textarea></label>
+ <label class="field"><span>예상 결과 *</span><textarea name="expected" maxlength="1000" rows="3" required placeholder="총 결제 금액이 수량에 맞게 갱신되어 표시된다">${esc(draft.expected||'')}</textarea></label>
+ <div class="workshop-actions"><button type="button" class="btn" data-workshop-action="save">임시 저장</button><button type="button" class="btn primary" data-workshop-action="publish">Test Cases에 등록 →</button>${draft.id?'<button type="button" class="btn" data-workshop-action="clear">새 TC 작성</button>':''}</div>
+ </form></section>
+ <aside class="panel"><div class="panel-head"><h3>내 임시 저장 목록</h3><span>${tcDrafts().length}개</span></div>${tcDrafts().length?tcDrafts().slice().reverse().map(d=>`<div class="workshop-draft"><strong>${esc(d.title)}</strong><small>${esc(projectLabel(d.project))} · ${esc(d.suite)} · ${esc(d.id)}</small><div class="workshop-actions"><button type="button" class="btn" data-workshop-edit="${esc(d.id)}">이어 쓰기</button><button type="button" class="btn" data-workshop-delete="${esc(d.id)}">삭제</button></div></div>`).join(''):'<p class="empty-note">임시 저장된 TC가 없습니다.<br>작성 후 임시 저장을 눌러보세요.</p>'}<div class="workshop-guide subtle"><strong>연습 예시</strong><p>제목: 로그인 실패 시 안내 메시지 확인</p><p>사전 조건: 가상 로그인 화면이 열려 있다</p><p>테스트 단계: 1. 잘못된 비밀번호 입력 2. 로그인 클릭</p><p>예상 결과: 오류 안내가 표시되고 로그인은 진행되지 않는다</p></div></aside></div>`;
+}
+function workshopSubmit(mode){
+ const form=$('#tc-workshop-form');if(!form||!form.reportValidity())return;
+ const v=Object.fromEntries(new FormData(form).entries());
+ for(const key of ['title','suite','preconditions','steps','expected'])v[key]=String(v[key]||'').trim();
+ if(!v.title||!v.suite||!v.steps||!v.expected){toast('필수 항목을 모두 입력해 주세요.');return}
+ if(v.project&&!data.projects.some(p=>p.key===v.project)){toast('유효한 프로젝트를 선택해 주세요.');return}
+ if(mode==='publish'){
+  if(!v.project){toast('Test Cases에 등록하려면 프로젝트를 선택해야 해요.');return}
+  const item={id:nextTestCaseId(),title:v.title,project:v.project,suite:v.suite,priority:v.priority,preconditions:v.preconditions,steps:v.steps,expected:v.expected,status:'Not Run'};
+  data.cases.unshift(item);
+  if(selectedWorkshopDraftId)data.tcDrafts=tcDrafts().filter(d=>d.id!==selectedWorkshopDraftId);
+  selectedWorkshopDraftId=null;save();selectedCaseId=item.id;page='cases';render();toast(item.id+' 테스트 케이스로 등록했습니다.');return;
+ }
+ const drafts=tcDrafts();let d=drafts.find(x=>x.id===selectedWorkshopDraftId);
+ if(d)Object.assign(d,v);else{d={id:nextWorkshopId(),...v};drafts.push(d)}
+ selectedWorkshopDraftId=d.id;save();render();toast('임시 저장했습니다.');
+}
 function cases(){return `${heading('TEST MANAGEMENT','Test Cases','테스트 시나리오와 실행 기준을 관리합니다.','<button class="btn primary" data-action="new-case">＋ Add test case</button>')}<div class="toolbar"><input class="search" id="case-search" placeholder="⌕  테스트 케이스 검색..." /><select class="filter" id="case-filter"><option value="">All status</option><option ${initialCaseStatus==='Pass'?'selected':''}>Pass</option><option>Fail</option><option>Blocked</option></select><select class="filter" id="case-project-filter"><option value="">모든 프로젝트</option><option value="unassigned">미연결 케이스</option>${data.projects.map(p=>`<option value="${esc(p.key)}" ${analyticsDrillProject===p.key?'selected':''}>${esc(p.name)} (${esc(p.key)})</option>`).join('')}</select></div><div class="panel"><div class="table-wrap"><table><thead><tr><th>CASE ID</th><th>TITLE</th><th>PROJECT</th><th>TEST SUITE</th><th>PRIORITY</th><th>LAST RESULT</th><th>DETAILS</th></tr></thead><tbody id="case-rows">${caseRows(data.cases.filter(c=>(!initialCaseStatus||c.status===initialCaseStatus)&&(!analyticsDrillProject||c.project===analyticsDrillProject)))}</tbody></table></div></div>`}
 function caseRows(rows){return rows.length?rows.map(c=>`<tr><td class="case-id">${esc(c.id)}</td><td class="project-name">${esc(c.title)}</td><td>${esc(projectLabel(c.project))}</td><td>${esc(c.suite)}</td><td>${pill(c.priority)}</td><td>${pill(c.status)}</td><td><button type="button" class="btn" data-case-id="${esc(c.id)}">상세 보기 →</button></td></tr>`).join(''):'<tr><td colspan="7" class="empty-note">검색 결과가 없습니다.</td></tr>'}
 function caseDetail(){
@@ -343,7 +391,7 @@ function updateNavigationCounts(){
  const ids=[['#nav-project-count',data.projects.length],['#nav-case-count',data.cases.length],['#nav-bug-count',data.bugs.length]];
  for(const [id,n] of ids){const node=$(id);if(node)node.textContent=String(n)}
 }
-function render(){const pages={dashboard,projects,cases,runs,bugs,reports,settings};$('#page-content').innerHTML=page==='projects'&&selectedProjectKey?projectDetail():page==='cases'&&selectedCaseId?caseDetail():page==='runs'&&selectedRunId?runDetail():page==='bugs'&&selectedBugId?bugDetail():pages[page]();$('#crumb').textContent=({dashboard:'Dashboard',projects:'Projects',cases:'Test Cases',runs:'Test Runs',bugs:'Bug Management',reports:'Reports',settings:'Settings & Backup'})[page];document.querySelectorAll('.nav-item').forEach(b=>b.classList.toggle('active',b.dataset.page===page));updateNavigationCounts();bindPage()}
+function render(){const pages={dashboard,projects,cases,runs,bugs,reports,settings,workshop};$('#page-content').innerHTML=page==='projects'&&selectedProjectKey?projectDetail():page==='cases'&&selectedCaseId?caseDetail():page==='runs'&&selectedRunId?runDetail():page==='bugs'&&selectedBugId?bugDetail():pages[page]();$('#crumb').textContent=({dashboard:'Dashboard',projects:'Projects',cases:'Test Cases',runs:'Test Runs',bugs:'Bug Management',reports:'Reports',settings:'Settings & Backup',workshop:'TC 작성 연습'})[page];document.querySelectorAll('.nav-item').forEach(b=>b.classList.toggle('active',b.dataset.page===page));updateNavigationCounts();bindPage()}
 function toast(msg){let t=$('#toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2200)}
 function openModal(type){let cfg={
  project:{title:'새 프로젝트 만들기',desc:'가상의 QA 프로젝트를 추가합니다.',fields:[['name','프로젝트 이름','text','예: Payment Web QA'],['key','프로젝트 키','text','예: PAY'],['release','릴리즈','text','예: v1.0.0']]},
@@ -362,6 +410,7 @@ function openModal(type){let cfg={
  }save();$('#modal-root').innerHTML='';render();toast('데모 데이터가 추가되었습니다.')});
 }
 function bindPage(){
+ const w=$('#tc-workshop-form');if(w)w.addEventListener('submit',e=>{e.preventDefault();workshopSubmit('save')});
  let cs=$('#case-search');if(cs)cs.addEventListener('input',filterCases);
  let cf=$('#case-filter');if(cf)cf.addEventListener('change',filterCases);
  let ap=$('#analytics-project');if(ap)ap.addEventListener('change',e=>{analyticsProject=e.target.value;render()});
@@ -373,7 +422,11 @@ function bindPage(){
 function openStats(action){
  selectedProjectKey=null;selectedCaseId=null;selectedBugId=null;
  initialCaseStatus='';initialBugStatus='';initialProjectStatus='';analyticsDrillProject=analyticsProject;
- if(action==='cases'){page='cases'}
+ if(action==='project-all'){page='projects';projectListFilter='all';analyticsDrillProject=''}
+ else if(action==='project-active'){page='projects';projectListFilter='active';analyticsDrillProject=''}
+ else if(action==='project-cases'){page='cases';analyticsDrillProject=''}
+ else if(action==='project-bugs'){page='bugs';analyticsDrillProject=''}
+ else if(action==='cases'){page='cases'}
  else if(action==='passed-cases'){page='cases';initialCaseStatus='Pass'}
  else if(action==='open-bugs'){page='bugs';initialBugStatus='active'}
  else if(action==='active-projects'){page='projects';initialProjectStatus='Active'}
@@ -382,6 +435,10 @@ function openStats(action){
 }
 // One delegated handler works for buttons added AFTER the page was rendered.
 document.addEventListener('click',e=>{
+ const workshopAction=e.target.closest('[data-workshop-action]');
+ if(workshopAction){if(workshopAction.dataset.workshopAction==='clear'){selectedWorkshopDraftId=null;render()}else workshopSubmit(workshopAction.dataset.workshopAction);return}
+ const editDraft=e.target.closest('[data-workshop-edit]');if(editDraft){selectedWorkshopDraftId=editDraft.dataset.workshopEdit;page='workshop';render();return}
+ const deleteDraft=e.target.closest('[data-workshop-delete]');if(deleteDraft){data.tcDrafts=tcDrafts().filter(d=>d.id!==deleteDraft.dataset.workshopDelete);if(selectedWorkshopDraftId===deleteDraft.dataset.workshopDelete)selectedWorkshopDraftId=null;save();render();toast('임시 저장 TC를 삭제했습니다.');return}
  const stat=e.target.closest('[data-stat-action]');if(stat){openStats(stat.dataset.statAction);return}
  const linkedBug=e.target.closest('button[data-linked-bug]');
  if(linkedBug){selectedBugId=linkedBug.dataset.linkedBug;selectedRunId=null;page='bugs';render();return}
@@ -402,6 +459,7 @@ document.addEventListener('click',e=>{
  const action=e.target.closest('[data-action]');
  if(action){const a=action.dataset.action;
   if(a==='close-modal'){$('#modal-root').replaceChildren();return}
+  if(a==='clear-project-filter'){projectListFilter='all';initialProjectStatus='';render();return}
   if(a==='export-report'){exportReport();return}
   if(a==='backup-export'){backupDownload();return}
   if(a==='backup-import'){$('#backup-file').value='';$('#backup-file').click();return}
