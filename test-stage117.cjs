@@ -1,0 +1,20 @@
+const fs=require('fs'),vm=require('vm'),assert=require('node:assert/strict');
+const src=fs.readFileSync(__dirname+'/src/app.js','utf8').split("document.addEventListener('click',event=>")[0];
+const saved={projects:[{key:'A',name:'A',status:'Active'},{key:'R',name:'R',status:'Review'},{key:'C',name:'C',status:'Completed'}],cases:[{id:'TC-1',project:'A'}],runs:[{id:'RUN-1',name:'Active run',project:'A',date:'2026-01-01',results:[]},{id:'RUN-2',name:'Archived run',project:'C',date:'2026-01-02',results:[]},{id:'RUN-3',name:'Review run',project:'R',date:'2026-01-03',results:[]}],bugs:[{id:'BUG-1',project:'A',status:'Open'},{id:'BUG-2',project:'R',status:'Resolved'},{id:'BUG-3',project:'C',status:'Open'},{id:'BUG-4',project:'A',status:'Closed'}]};
+const nodes={};const ctx={localStorage:{getItem:()=>JSON.stringify(saved),setItem:()=>{}},document:{addEventListener:()=>{},querySelector:(id)=>nodes[id]??null,querySelectorAll:()=>[],body:{classList:{toggle:()=>{}}}},console,setTimeout:()=>{},Date,JSON,FormData:class{},window:{}};
+vm.createContext(ctx);vm.runInContext(src,ctx);
+const evalExpr=x=>vm.runInContext(x,ctx);
+assert.equal(evalExpr('activeProjects().length'),2);
+assert.equal(evalExpr("data.runs.filter(r=>matchesProjectStage(r.project,'active')).length"),2);
+assert.equal(evalExpr("data.runs.filter(r=>matchesProjectStage(r.project,'completed')).length"),1);
+assert.equal(evalExpr("data.bugs.filter(b=>matchesProjectStage(b.project,'active')&&b.status!=='Closed').length"),2);
+let text=evalExpr('runs()');assert(text.includes('Active run')&&text.includes('Review run')&&!text.includes('Archived run'));
+vm.runInContext("runProjectView='completed'",ctx);text=evalExpr('runs()');assert(!text.includes('Active run')&&!text.includes('Review run')&&text.includes('Archived run'));
+const source=fs.readFileSync(__dirname+'/src/app.js','utf8');assert(source.includes("kind==='active-project'"));assert(source.includes("!activeProjects().some(p=>p.key===v.project)"));
+for(const id of ['#nav-project-count','#nav-run-count','#nav-bug-count'])nodes[id]={textContent:''};evalExpr('updateNavigationCounts()');assert.deepEqual([nodes['#nav-project-count'].textContent,nodes['#nav-run-count'].textContent,nodes['#nav-bug-count'].textContent],['2','2','2']);
+// Check actual rendered bug-create select uses only active and review projects.
+nodes['#modal-root']={innerHTML:''};nodes['#create-form']={addEventListener:()=>{}};
+evalExpr("openModal('bug')");
+assert(nodes['#modal-root'].innerHTML.includes('value="A"')&&nodes['#modal-root'].innerHTML.includes('value="R"')&&!nodes['#modal-root'].innerHTML.includes('value="C"'));
+vm.runInContext("data.projects.find(p=>p.key==='A').status='Completed'",ctx);evalExpr('updateNavigationCounts()');assert.deepEqual([nodes['#nav-project-count'].textContent,nodes['#nav-run-count'].textContent,nodes['#nav-bug-count'].textContent],['1','1','1']);
+console.log('PASS: 10 checks incl status filters, counts, data mutation, and bug form validation presence');

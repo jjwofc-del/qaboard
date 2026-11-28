@@ -77,3 +77,11 @@ GitHub Pages에서 바로 배포할 수 있는 정적 웹앱입니다.
 
 ## v1.1.6 QA workflow update
 See `CHANGELOG-v1.1.6.md` for Test Run-derived results, QA retest workflow, Dashboard action queue and backup notes.
+
+
+## v1.1.7 — Project-centered QA lists
+- Test Runs: Active/Review 프로젝트 기본 표시, Completed 프로젝트는 별도 목록
+- 사이드바 숫자: Project=미완료 프로젝트, Test Runs=미완료 프로젝트의 실행, Bugs=미완료 프로젝트의 미종결 버그
+- Create Bug: 미완료(Active/Review) 프로젝트만 선택 가능, 저장 시에도 검증
+- 프로젝트 상태 변경은 Test Run/Bug의 개별 상태를 자동 변경하지 않습니다.
+- 기존 `localStorage` 데이터를 보존하며 서버 동기화는 제공하지 않습니다.
