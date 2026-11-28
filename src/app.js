@@ -50,7 +50,8 @@ let initialProjectStatus='';
 let projectListFilter='all';
 let selectedWorkshopDraftId=null;
 let tcHubQuery='';
-let tcHubProject='';
+let tcHubProject='active';
+let tcHubFocusedProject='';
 let selectedTcCollectionId=null;
 let selectedTcCollectionEdit=false;
 let analyticsProject='';
@@ -59,6 +60,9 @@ const $=s=>document.querySelector(s);
 const save=()=>localStorage.setItem('qaboard-demo',JSON.stringify(data));
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const projectLabel=key=>data.projects.find(p=>p.key===key)?.name||'미연결';
+const projectStage=key=>{const p=data.projects.find(x=>x.key===key);return p?(p.status==='Completed'?'completed':'active'):'unassigned'};
+const matchesProjectStage=(key,stage)=>!stage||(stage==='active'?projectStage(key)==='active':stage==='completed'?projectStage(key)==='completed':true);
+
 // Linked case counts are derived from actual case associations, never from legacy sample counters.
 const linkedCasesFor=key=>data.cases.filter(c=>c.project===key).length;
 const linkedCaseTotal=()=>data.cases.filter(c=>data.projects.some(p=>p.key===c.project)).length;
@@ -69,7 +73,7 @@ const pill=s=>`<span class="status ${statusClass(s)}">${s}</span>`;
 function heading(kicker,title,desc,action=''){return `<div class="page-heading"><div><div class="eyebrow">${kicker}</div><h1>${title}</h1><p>${desc}</p></div>${action}</div>`}
 function stats(items){return `<div class="stats">${items.map(x=>`<div class="stat-card ${x.action?'stat-clickable':''}" ${x.action?`data-stat-action="${x.action}" role="button" tabindex="0" aria-label="${x.label} 상세 보기"`: ''}><div class="stat-top">${x.label}<span class="stat-icon">${x.icon}</span></div><div class="stat-value">${x.value}</div><div class="stat-foot">${x.foot}</div></div>`).join('')}</div>`}
 function projectTable(rows=data.projects){return `<div class="panel table-panel"><div class="panel-head"><h3>Project overview</h3><span>${rows.length} projects · 연결된 케이스 기준</span></div><div class="table-wrap"><table><thead><tr><th>PROJECT</th><th>RELEASE</th><th>LINKED TEST CASES</th><th>PROGRESS</th><th>BUGS</th><th>STATUS</th><th>DETAILS</th></tr></thead><tbody>${rows.map(p=>`<tr class="detail-click-row" tabindex="0" role="link" aria-label="${esc(p.name)} 프로젝트 상세 보기" data-row-detail="project" data-row-id="${esc(p.key)}"><td class="project-name">${esc(p.name)}<div class="muted">${esc(p.key)}</div></td><td>${esc(p.release)}</td><td>${linkedCasesFor(p.key)}</td><td><div style="display:flex;align-items:center;gap:8px"><div class="progress-track" style="width:75px"><div class="progress-fill" style="width:${Number(p.progress)||0}%"></div></div>${Number(p.progress)||0}%</div></td><td>${data.bugs.filter(b=>b.project===p.key).length}</td><td>${pill(p.status)}</td><td><button class="btn" data-project-key="${esc(p.key)}">상세 보기 →</button></td></tr>`).join('')}</tbody></table></div></div>`}
-function projectDetail(){const p=data.projects.find(x=>x.key===selectedProjectKey);if(!p){selectedProjectKey=null;return projects()}return `${heading('PROJECT DETAILS',esc(p.name),'프로젝트 정보와 진행 상황을 확인하고 수정할 수 있습니다.','<button class="btn primary" data-action="edit-project">✎ Edit project</button>')}<button class="btn" data-action="back-projects" style="margin-bottom:16px">← 프로젝트 목록으로</button><div class="dashboard-grid"><div class="panel"><div class="panel-head"><h3>Project information</h3>${pill(p.status)}</div><div class="detail-row"><span>프로젝트 키</span><strong>${esc(p.key)}</strong></div><div class="detail-row"><span>프로젝트 이름</span><strong>${esc(p.name)}</strong></div><div class="detail-row"><span>릴리즈</span><strong>${esc(p.release)}</strong></div><div class="detail-row"><span>상태</span><strong>${pill(p.status)}</strong></div></div><div class="panel"><div class="panel-head"><h3>QA progress</h3><span>수동 설정 진행률</span></div><div class="stat-value">${Number(p.progress)||0}%</div><div class="progress-track"><div class="progress-fill" style="width:${Number(p.progress)||0}%"></div></div><div class="detail-row"><span>연결된 테스트 케이스</span><strong>${linkedCasesFor(p.key)}</strong></div><div class="detail-row"><span>등록된 버그</span><strong>${data.bugs.filter(b=>b.project===p.key).length}</strong></div></div></div>`}
+function projectDetail(){const p=data.projects.find(x=>x.key===selectedProjectKey);if(!p){selectedProjectKey=null;return projects()}return `${heading('PROJECT DETAILS',esc(p.name),'프로젝트 정보와 진행 상황을 확인하고 수정할 수 있습니다.','<button class="btn primary" data-action="edit-project">✎ Edit project</button>')}<button class="btn" data-action="back-projects" style="margin-bottom:16px">← 프로젝트 목록으로</button><div class="dashboard-grid"><div class="panel"><div class="panel-head"><h3>Project information</h3>${pill(p.status)}</div><div class="detail-row"><span>프로젝트 키</span><strong>${esc(p.key)}</strong></div><div class="detail-row"><span>프로젝트 이름</span><strong>${esc(p.name)}</strong></div><div class="detail-row"><span>릴리즈</span><strong>${esc(p.release)}</strong></div><div class="detail-row"><span>상태</span><strong>${pill(p.status)}</strong></div></div><div class="panel"><div class="panel-head"><h3>QA progress</h3><span>수동 설정 진행률</span></div><div class="stat-value">${Number(p.progress)||0}%</div><div class="progress-track"><div class="progress-fill" style="width:${Number(p.progress)||0}%"></div></div><button type="button" class="detail-row qa-linked-cases-link" data-open-project-suites="${esc(p.key)}" aria-label="${esc(p.name)} 프로젝트의 Test Suite 보기"><span>연결된 테스트 케이스</span><strong>${linkedCasesFor(p.key)}건 <span aria-hidden="true">→</span></strong></button><div class="detail-row"><span>등록된 버그</span><strong>${data.bugs.filter(b=>b.project===p.key).length}</strong></div></div></div>`}
 function openEditProject(){const p=data.projects.find(x=>x.key===selectedProjectKey);if(!p)return;$('#modal-root').innerHTML=`<div class="modal-backdrop"><form class="modal" id="edit-project-form"><h2>프로젝트 수정</h2><p>프로젝트 키는 변경하지 않습니다. 가상 프로젝트 정보만 입력하세요.</p><label class="field"><span>프로젝트 키 (변경 불가)</span><input value="${esc(p.key)}" disabled /></label><label class="field"><span>프로젝트 이름</span><input name="name" value="${esc(p.name)}" maxlength="100" required /></label><label class="field"><span>릴리즈</span><input name="release" value="${esc(p.release)}" maxlength="40" required /></label><label class="field"><span>상태</span><select name="status">${['Active','Review','Completed'].map(v=>`<option ${p.status===v?'selected':''}>${v}</option>`).join('')}</select></label><label class="field"><span>진행률 (0–100%)</span><input name="progress" type="number" min="0" max="100" step="1" value="${Number(p.progress)||0}" required /></label><div class="modal-actions"><button type="button" class="btn" data-action="close-modal">취소</button><button type="submit" class="btn primary">변경 저장</button></div></form></div>`;$('#edit-project-form').addEventListener('submit',e=>{e.preventDefault();const v=Object.fromEntries(new FormData(e.currentTarget).entries());const progress=Number(v.progress);if(!v.name.trim()||!v.release.trim()||!Number.isInteger(progress)||progress<0||progress>100){toast('입력값을 확인해 주세요.');return}p.name=v.name.trim();p.release=v.release.trim();p.status=v.status;p.progress=progress;save();$('#modal-root').innerHTML='';render();toast('프로젝트 변경 사항을 저장했습니다.')})}
 
 // Stage 6 analytics: use actual case-level Test Run results, not legacy sample counters.
@@ -144,10 +148,10 @@ function allTcGroups(){
  return [...assigned,...legacyProjects.map(p=>tcGroupInfo(legacyGroupId(p)))];
 }
 function tcHub(){
- const groups=allTcGroups().filter(g=>(!tcHubProject||g.project===tcHubProject)&&[g.id,g.name,g.suite,projectLabel(g.project)].join(' ').toLowerCase().includes(tcHubQuery.toLowerCase()));
+ const groups=allTcGroups().filter(g=>matchesProjectStage(g.project,tcHubProject)&&(!tcHubFocusedProject||g.project===tcHubFocusedProject)&&[g.id,g.name,g.suite,projectLabel(g.project)].join(' ').toLowerCase().includes(tcHubQuery.toLowerCase()));
  const totalCases=data.cases.length;
  return `${heading('TEST CASE WORKSPACE','Test Case 목록','Test Suite를 선택해 세부 TC를 관리하거나 새 Test Suite를 만드세요.','<button type="button" class="btn primary" data-action="tc-new">＋ Add test case</button>')}
- <div class="tc-hub-toolbar"><input id="tc-hub-search" class="search" placeholder="Test Suite 이름 또는 프로젝트 검색" value="${esc(tcHubQuery)}" aria-label="Test Suite 검색"/><select id="tc-hub-project" class="filter" aria-label="프로젝트별 Test Suite"><option value="">전체 프로젝트</option>${data.projects.map(p=>`<option value="${esc(p.key)}" ${tcHubProject===p.key?'selected':''}>${esc(p.name)}</option>`).join('')}</select><span>${groups.length}개 Suite</span></div>
+ <div class="tc-hub-toolbar"><input id="tc-hub-search" class="search" placeholder="Test Suite 이름 또는 프로젝트 검색" value="${esc(tcHubQuery)}" aria-label="Test Suite 검색"/><select id="tc-hub-project" class="filter" aria-label="프로젝트 진행 상태 필터"><option value="active" ${tcHubProject==='active'?'selected':''}>진행 중인 프로젝트</option><option value="completed" ${tcHubProject==='completed'?'selected':''}>완료된 프로젝트</option></select>${tcHubFocusedProject?`<button type="button" class="btn tc-focus-clear" data-action="clear-tc-project-focus">${esc(projectLabel(tcHubFocusedProject))} · 선택 해제 ×</button>`:''}<span>${groups.length}개 Suite</span></div>
  <section class="panel tc-sheet"><div class="panel-head"><h3>Test Suite 목록</h3><span>행을 클릭하면 세부 TC 목록이 열립니다</span></div><div class="table-wrap"><table class="tc-sheet-table tc-collection-table"><thead><tr><th>Suite ID</th><th>Test Suite 이름</th><th>프로젝트</th><th>세부 분류</th><th>TC 수</th></tr></thead><tbody>${groups.length?groups.map(g=>`<tr class="tc-suite-row" tabindex="0" role="link" aria-label="${esc(g.name)} 세부 TC 열기" data-tc-group="${esc(g.id)}"><td class="case-id">${esc(g.id)}</td><td class="tc-title-cell">${esc(g.name)}</td><td>${esc(projectLabel(g.project))}</td><td>${esc(g.suite||'—')}</td><td>${tcCasesInGroup(g).length}건</td></tr>`).join(''):'<tr><td colspan="5" class="empty-note">Test Suite가 없습니다. + Add test case로 생성해 보세요.</td></tr>'}</tbody></table></div></section>
  <p class="analytics-note">기존 TC는 ‘기존 TC’ 묶음에서 계속 조회·수정할 수 있습니다. 입력 내용은 현재 브라우저에만 저장되며, 다른 방문자와 자동 공유되지는 않습니다.</p>`;
 }
@@ -157,7 +161,7 @@ function tcCollectionForm(){
  <section class="panel tc-collection-form"><div class="panel-head"><h3>${existing?'Test Suite 수정':'테스트 케이스 추가'}</h3><span>Step 1 / Test Suite 정보</span></div>
  <form id="tc-collection-form" autocomplete="off">
  <label class="field"><span>Test Suite 이름 *</span><input name="name" required maxlength="100" value="${esc(existing?.name||'')}" placeholder="예: 쇼핑몰 결제 테스트"/></label>
- <label class="field"><span>프로젝트 *</span><select name="project" required ${existing?'disabled':''}><option value="">프로젝트 선택</option>${data.projects.map(p=>`<option value="${esc(p.key)}" ${p.key===existing?.project?'selected':''}>${esc(p.name)}</option>`).join('')}</select></label>
+ <label class="field"><span>프로젝트 *</span><select name="project" required ${existing?'disabled':''}><option value="">프로젝트 선택</option>${data.projects.filter(p=>existing?.project===p.key||p.status!=='Completed').map(p=>`<option value="${esc(p.key)}" ${p.key===existing?.project?'selected':''}>${esc(p.name)}</option>`).join('')}</select></label>
  <label class="field"><span>세부 분류 (선택)</span><input name="suite" maxlength="80" value="${esc(existing?.suite||'')}" placeholder="예: 결제 / 장바구니"/></label>
  <label class="field"><span>기본 우선순위</span><select name="priority">${['Low','Medium','High'].map(v=>`<option ${v===(existing?.priority||'Medium')?'selected':''}>${v}</option>`).join('')}</select></label>
  <div class="workshop-actions"><button class="btn primary" type="submit">${existing?'Suite 정보 저장':'Test Suite 만들기'}</button><button class="btn" type="button" data-action="tc-back">취소</button></div>
@@ -235,7 +239,7 @@ function workshopSubmit(mode){
  if(d)Object.assign(d,v);else{d={id:nextWorkshopId(),collectionId:group.id,...v};drafts.push(d)}
  selectedWorkshopDraftId=d.id;save();render();toast('이 묶음에 임시 저장했습니다.');
 }
-function cases(){return `${heading('TEST MANAGEMENT','Test Cases','테스트 시나리오와 실행 기준을 관리합니다.','<button class="btn primary" data-action="new-case">＋ Add test case</button>')}<div class="toolbar"><input class="search" id="case-search" placeholder="⌕  테스트 케이스 검색..." /><select class="filter" id="case-filter"><option value="">All status</option><option ${initialCaseStatus==='Pass'?'selected':''}>Pass</option><option>Fail</option><option>Blocked</option></select><select class="filter" id="case-project-filter"><option value="">모든 프로젝트</option><option value="unassigned">미연결 케이스</option>${data.projects.map(p=>`<option value="${esc(p.key)}" ${analyticsDrillProject===p.key?'selected':''}>${esc(p.name)} (${esc(p.key)})</option>`).join('')}</select></div><div class="panel"><div class="table-wrap"><table><thead><tr><th>CASE ID</th><th>TITLE</th><th>PROJECT</th><th>TEST SUITE</th><th>PRIORITY</th><th>LAST RESULT</th><th>DETAILS</th></tr></thead><tbody id="case-rows">${caseRows(data.cases.filter(c=>(!initialCaseStatus||c.status===initialCaseStatus)&&(!analyticsDrillProject||c.project===analyticsDrillProject)))}</tbody></table></div></div>`}
+function cases(){return `${heading('TEST MANAGEMENT','Test Cases','테스트 시나리오와 실행 기준을 관리합니다.','<button class="btn primary" data-action="new-case">＋ Add test case</button>')}<div class="toolbar"><input class="search" id="case-search" placeholder="⌕  테스트 케이스 검색..." /><select class="filter" id="case-filter"><option value="">All status</option><option ${initialCaseStatus==='Pass'?'selected':''}>Pass</option><option>Fail</option><option>Blocked</option></select><select class="filter" id="case-project-filter" aria-label="프로젝트 진행 상태 필터"><option value="active">진행 중인 프로젝트</option><option value="completed">완료된 프로젝트</option></select></div><div class="panel"><div class="table-wrap"><table><thead><tr><th>CASE ID</th><th>TITLE</th><th>PROJECT</th><th>TEST SUITE</th><th>PRIORITY</th><th>LAST RESULT</th><th>DETAILS</th></tr></thead><tbody id="case-rows">${caseRows(data.cases.filter(c=>matchesProjectStage(c.project,'active')&&(!initialCaseStatus||c.status===initialCaseStatus)&&(!analyticsDrillProject||c.project===analyticsDrillProject)))}</tbody></table></div></div>`}
 function caseRows(rows){return rows.length?rows.map(c=>`<tr class="detail-click-row" tabindex="0" role="link" aria-label="${esc(c.id)} 테스트 케이스 상세 보기" data-row-detail="case" data-row-id="${esc(c.id)}"><td class="case-id">${esc(c.id)}</td><td class="project-name">${esc(c.title)}</td><td>${esc(projectLabel(c.project))}</td><td>${esc(c.suite)}</td><td>${pill(c.priority)}</td><td>${pill(c.status)}</td><td><button type="button" class="btn" data-case-id="${esc(c.id)}">상세 보기 →</button></td></tr>`).join(''):'<tr><td colspan="7" class="empty-note">검색 결과가 없습니다.</td></tr>'}
 function caseDetail(){
  const c=data.cases.find(x=>x.id===selectedCaseId);
@@ -371,14 +375,14 @@ function bugVisibilityRows(view=bugListView){
 function bugs(){
  const active=bugVisibilityRows('active').length,closed=bugVisibilityRows('completed').length;
  const visible=bugVisibilityRows();
- const filtered=visible.filter(b=>(!analyticsDrillProject||b.project===analyticsDrillProject)&&(!initialBugStatus|| (initialBugStatus==='active'?['Open','In Progress'].includes(b.status):b.status===initialBugStatus)));
+ const filtered=visible.filter(b=>matchesProjectStage(b.project,'active')&&(!analyticsDrillProject||b.project===analyticsDrillProject)&&(!initialBugStatus|| (initialBugStatus==='active'?['Open','In Progress'].includes(b.status):b.status===initialBugStatus)));
  return `${heading('ISSUE TRACKING','Bug Management','진행 중인 버그와 완료된 버그를 분리해 관리합니다.','<button class="btn primary" data-action="new-bug">＋ Create bug</button>')}
  ${stats([{label:'Total bugs',value:data.bugs.length,icon:'⚑',foot:'등록된 버그'},{label:'Open / In Progress',value:active,icon:'◷',foot:'조치가 필요한 버그'},{label:'Resolved / Closed',value:closed,icon:'✓',foot:'처리된 버그'},{label:'Linked test results',value:data.runs.reduce((sum,r)=>sum+(Array.isArray(r.results)?r.results.filter(x=>x.bugId&&data.bugs.some(b=>b.id===x.bugId)).length:0),0),icon:'☷',foot:'Test Run에서 연결된 결과'}])}
  <div class="project-filter-line project-archive-filter"><span>${bugListView==='completed'?'완료된 버그':bugListView==='all'?'전체 버그':'진행 중인 버그'} · ${visible.length}건</span><label class="project-view-label" for="bug-view-filter">목록 선택 <select id="bug-view-filter" class="filter" aria-label="버그 목록 선택"><option value="active" ${bugListView==='active'?'selected':''}>진행 중 · ${active}건</option><option value="completed" ${bugListView==='completed'?'selected':''}>완료된 버그 · ${closed}건</option><option value="all" ${bugListView==='all'?'selected':''}>전체 버그 · ${data.bugs.length}건</option></select></label></div>
  <div class="toolbar bug-toolbar"><input class="search" id="bug-search" aria-label="버그 검색" placeholder="⌕  ID·제목·설명·담당자 검색..." />
  <select class="filter" id="bug-filter" aria-label="버그 상태 필터"><option value="">모든 상태</option><option ${initialBugStatus==='active'?'selected':''} value="active">Open + In Progress</option>${BUG_STATES.map(x=>`<option value="${x}">${x}</option>`).join('')}</select>
  <select class="filter" id="bug-priority-filter" aria-label="우선순위 필터"><option value="">모든 우선순위</option>${BUG_PRIORITIES.map(x=>`<option>${x}</option>`).join('')}</select>
- <select class="filter" id="bug-project-filter" aria-label="프로젝트 필터"><option value="">모든 프로젝트</option>${data.projects.map(p=>`<option value="${esc(p.key)}" ${analyticsDrillProject===p.key?'selected':''}>${esc(p.name)} (${esc(p.key)})</option>`).join('')}</select></div>
+ <select class="filter" id="bug-project-filter" aria-label="프로젝트 진행 상태 필터"><option value="active">진행 중인 프로젝트</option><option value="completed">완료된 프로젝트</option></select></div>
  <div class="panel"><div class="panel-head"><h3>Bug list</h3><span id="bug-result-count">${filtered.length} bugs</span></div><div class="table-wrap"><table><thead><tr><th>BUG ID</th><th>SUMMARY</th><th>PROJECT</th><th>PRIORITY</th><th>ASSIGNEE</th><th>STATUS</th><th>LINKED TESTS</th><th>CHANGE</th><th>DETAILS</th></tr></thead><tbody id="bug-rows">${bugRows(filtered)}</tbody></table></div></div>`;
 }
 function bugRows(rows){return rows.length?rows.map(b=>`<tr class="detail-click-row" tabindex="0" role="link" aria-label="${esc(b.id)} 버그 상세 보기" data-row-detail="bug" data-row-id="${esc(b.id)}"><td class="bug-id">${esc(b.id)}</td><td class="project-name">${esc(b.title)}</td><td><strong>${esc(projectLabel(b.project))}</strong><div class="muted">${esc(b.project)}</div></td><td>${pill(b.priority)}</td><td>${esc(b.owner)}</td><td>${pill(b.status)}</td><td>${bugLinks(b.id).length}</td><td><select class="filter bug-status" data-id="${esc(b.id)}" aria-label="${esc(b.id)} 상태 변경">${BUG_STATES.map(state=>`<option ${state===b.status?'selected':''}>${state}</option>`).join('')}</select></td><td><button type="button" class="btn" data-bug-id="${esc(b.id)}">상세 보기 →</button></td></tr>`).join(''):'<tr><td colspan="9" class="empty-note">조건에 맞는 버그가 없습니다.</td></tr>'}
@@ -529,7 +533,7 @@ function bindPage(){
  });
  const w=$('#tc-workshop-form');if(w)w.addEventListener('submit',e=>{e.preventDefault();workshopSubmit('publish')});
  const hubSearch=$('#tc-hub-search');if(hubSearch)hubSearch.addEventListener('input',e=>{const pos=e.target.selectionStart;tcHubQuery=e.target.value;render();const next=$('#tc-hub-search');next?.focus();next?.setSelectionRange(pos,pos)});
- const hubFilter=$('#tc-hub-project');if(hubFilter)hubFilter.addEventListener('change',e=>{tcHubProject=e.target.value;render()});
+ const hubFilter=$('#tc-hub-project');if(hubFilter)hubFilter.addEventListener('change',e=>{tcHubProject=e.target.value;tcHubFocusedProject='';render()});
  let cs=$('#case-search');if(cs)cs.addEventListener('input',filterCases);
  let cf=$('#case-filter');if(cf)cf.addEventListener('change',filterCases);
  let ap=$('#analytics-project');if(ap)ap.addEventListener('change',e=>{analyticsProject=e.target.value;render()});
@@ -592,6 +596,8 @@ document.addEventListener('keydown',event=>{
 });
 // One delegated handler works for buttons added AFTER the page was rendered.
 document.addEventListener('click',e=>{
+ const suiteJump=e.target.closest('[data-open-project-suites]');
+ if(suiteJump){const key=suiteJump.dataset.openProjectSuites;const project=data.projects.find(p=>p.key===key);if(!project)return;workspaceMode='tc';workspaceMenuOpen=false;tcHubProject=project.status==='Completed'?'completed':'active';tcHubFocusedProject=key;tcHubQuery='';selectedProjectKey=null;selectedTcCollectionId=null;page='tc-hub';render();return}
  const tcGroupButton=e.target.closest('[data-tc-group]');
  if(tcGroupButton){selectedTcCollectionId=tcGroupButton.dataset.tcGroup;selectedTcCollectionEdit=false;page='tc-collection';render();return}
  const tcEdit=e.target.closest('[data-tc-hub-edit]');if(tcEdit){openTcForm(tcEdit.dataset.tcHubEdit);return}
@@ -619,6 +625,7 @@ document.addEventListener('click',e=>{
  const action=e.target.closest('[data-action]');
  if(action){const a=action.dataset.action;
   if(a==='close-modal'){$('#modal-root').replaceChildren();return}
+  if(a==='clear-tc-project-focus'){tcHubFocusedProject='';render();return}
   if(a==='tc-new'){selectedTcCollectionId=null;selectedTcCollectionEdit=false;page='tc-group-new';render();return}
   if(a==='tc-add-detail'){if(!tcGroupInfo(selectedTcCollectionId)?.project){toast('프로젝트를 먼저 연결해 주세요.');return}openTcForm();return}
   if(a==='tc-edit-group'){selectedTcCollectionEdit=true;page='tc-group-new';render();return}
@@ -660,10 +667,10 @@ document.addEventListener('change',e=>{
  if(!b)return;
  if(updateBugStatus(b,select.value)){save();render();toast(`${b.id} 상태가 변경되었습니다.`)}
 });
-function filterCases(){let q=$('#case-search').value.toLowerCase(),s=$('#case-filter').value,project=$('#case-project-filter').value;$('#case-rows').innerHTML=caseRows(data.cases.filter(c=>(c.id+c.title+c.suite+projectLabel(c.project)).toLowerCase().includes(q)&&(!s||c.status===s)&&(!project||(project==='unassigned'?!c.project:c.project===project))))}
+function filterCases(){let q=$('#case-search').value.toLowerCase(),s=$('#case-filter').value,project=$('#case-project-filter').value;$('#case-rows').innerHTML=caseRows(data.cases.filter(c=>(c.id+c.title+c.suite+projectLabel(c.project)).toLowerCase().includes(q)&&(!s||c.status===s)&&matchesProjectStage(c.project,project)))}
 function filterBugs(){
  const q=$('#bug-search').value.trim().toLocaleLowerCase(),status=$('#bug-filter').value,priority=$('#bug-priority-filter').value,project=$('#bug-project-filter').value;
- const filtered=bugVisibilityRows().filter(b=>[b.id,b.title,b.project,projectLabel(b.project),b.description||'',b.steps||'',b.owner].some(v=>String(v).toLocaleLowerCase().includes(q))&&(!status||(status==='active'?['Open','In Progress'].includes(b.status):b.status===status))&&(!priority||b.priority===priority)&&(!project||b.project===project));
+ const filtered=bugVisibilityRows().filter(b=>[b.id,b.title,b.project,projectLabel(b.project),b.description||'',b.steps||'',b.owner].some(v=>String(v).toLocaleLowerCase().includes(q))&&(!status||(status==='active'?['Open','In Progress'].includes(b.status):b.status===status))&&(!priority||b.priority===priority)&&matchesProjectStage(b.project,project));
  $('#bug-rows').innerHTML=bugRows(filtered);$('#bug-result-count').textContent=filtered.length+' bugs';
 }
 
@@ -671,7 +678,7 @@ function closeWorkspaceMenu(){workspaceMenuOpen=false;$('#workspace-options').hi
 function activateWorkspace(mode){
  workspaceMode=mode==='tc'?'tc':'demo';workspaceMenuOpen=false;
  page=workspaceMode==='tc'?'tc-hub':'dashboard';
- selectedTcCollectionId=null;selectedTcCollectionEdit=false;
+ selectedTcCollectionId=null;selectedTcCollectionEdit=false;tcHubFocusedProject='';tcHubProject='active';
  selectedHubEditCaseId=null;selectedWorkshopDraftId=null;selectedProjectKey=null;selectedCaseId=null;selectedRunId=null;selectedBugId=null;render();
 }
 $('#workspace-trigger').addEventListener('click',()=>{workspaceMenuOpen=!workspaceMenuOpen;$('#workspace-options').hidden=!workspaceMenuOpen;$('#workspace-trigger').setAttribute('aria-expanded',String(workspaceMenuOpen))});

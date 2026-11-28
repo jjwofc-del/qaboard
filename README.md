@@ -1,3 +1,22 @@
+# QABoard v1.1.5 — Project / Test Suite navigation and status filters
+
+## Changes
+- Project Details → QA progress → linked test cases is now a clickable control opening the Test Case workspace scoped to that project, displaying its Test Suites (including legacy cases when present).
+- Test Case workspace defaults to non-completed-project suites; the selector offers **진행 중인 프로젝트** and **완료된 프로젝트**. Project focus can be cleared to view the entire selected status category.
+- Bug Management project filter offers the same two categories. This is **project completion status**, independent of the separate bug status view (Open/In Progress vs Resolved/Closed).
+- Legacy Test Cases project filter also uses the two project-state options.
+- No localStorage schema migration or data deletion. Complete projects and their suites remain accessible through the completed selector.
+
+## Safety
+Before deploying, use Settings & Backup → JSON export. Data remains local to the current browser; do not put personal/customer data into the demo.
+
+## Smoke test
+1. Project detail linked cases → Test Case workspace focused project
+2. Clear project focus → suites for all noncompleted projects
+3. Mark project Completed → suite moves to completed filter
+4. Bug list: project filter switches active/completed independently of bug status filter
+5. Other areas (Runs, Reports, Backup) remain functional
+
 # QABoard v1.1.1 — Test Suite UI 개선
 
 - 기존 **TC 묶음** 명칭을 **Test Suite**로 변경했습니다.
