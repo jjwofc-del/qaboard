@@ -1,0 +1,5 @@
+const assert=require('node:assert/strict');const fs=require('node:fs');const path=require('node:path');const root=__dirname;const html=fs.readFileSync(path.join(root,'index.html'),'utf8');const js=fs.readFileSync(path.join(root,'src/app.js'),'utf8');const css=fs.readFileSync(path.join(root,'src/styles.css'),'utf8');
+assert.match(html,/data-workspace="guide"/);assert.match(html,/app\.js\?v=121/);assert.match(html,/styles\.css\?v=121/);
+assert.match(js,/function userGuide\(\)/);assert.match(js,/guide:userGuide/);assert.match(js,/page=mode==='guide'\?'guide'/);assert.match(js,/guide:'사용설명법'/);assert.match(js,/page==='guide'\?'guide'/);assert.match(js,/guide-go-handoff/);assert.match(js,/guide-go-settings/);assert.match(js,/guide-go-tc/);
+for(const word of ['Project','Test Suite','Test Runs','Bug Management','Reports','GPT 개발 요청서','Backup JSON','Restore JSON','localStorage','Resolved','Closed']) assert.ok(js.includes(word),'missing guide topic: '+word);
+assert.match(css,/\.guide-section/);assert.match(js,/function navigateBack\(\)/);console.log('v1.2.1 guide navigation and content checks passed');
