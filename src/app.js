@@ -64,6 +64,18 @@ const projectStage=key=>{const p=data.projects.find(x=>x.key===key);return p?(p.
 const matchesProjectStage=(key,stage)=>!stage||(stage==='active'?projectStage(key)==='active':stage==='completed'?projectStage(key)==='completed':true);
 
 // Linked case counts are derived from actual case associations, never from legacy sample counters.
+// The latest observed result comes from an explicit Test Run, never from editable TC metadata.
+// Runs are stored newest-first. Legacy summary-only runs are intentionally ignored.
+function latestCaseExecution(caseId){
+ for(const run of data.runs){
+  if(!Array.isArray(run.results))continue;
+  const entry=run.results.find(x=>x.caseId===caseId);
+  if(entry)return {run,entry};
+ }
+ return null;
+}
+const latestCaseResult=c=>latestCaseExecution(c.id)?.entry.result||'Not Run';
+const caseResultPill=c=>pill(latestCaseResult(c));
 const linkedCasesFor=key=>data.cases.filter(c=>c.project===key).length;
 const linkedCaseTotal=()=>data.cases.filter(c=>data.projects.some(p=>p.key===c.project)).length;
 const projectOptions=(selected='')=>`<option value="" ${!selected?'selected':''}>프로젝트 미지정</option>`+data.projects.map(p=>`<option value="${esc(p.key)}" ${selected===p.key?'selected':''}>${esc(p.name)} (${esc(p.key)})</option>`).join('');
@@ -106,6 +118,7 @@ function dashboard(){
  return `${heading('QUALITY OVERVIEW','QA Dashboard','등록된 데모 프로젝트의 실제 테스트 실행 결과와 버그 현황입니다.',analyticsSelector())}
  ${stats([{label:'모든 프로젝트',value:a.projects.filter(p=>p.status!=='Completed').length,icon:'◫',foot:'완료 전 프로젝트 보기',action:'project-all'},{label:'Test Runs',value:a.totalRuns,icon:'▷',foot:'테스트 실행 목록 보기',action:'dashboard-runs'},{label:'Bug Management',value:a.bugs.length,icon:'⚑',foot:'등록된 버그 보기',action:'dashboard-bugs'},{label:'Reports',value:a.passRate===null?'—':a.passRate+'%',icon:'▥',foot:'품질 리포트 · Pass rate',action:'reports'}])}
  <div class="dashboard-grid"><div class="panel"><div class="panel-head"><h3>Test execution results</h3><span>${a.runs.length} tracked runs</span></div>${breakdownBars([['Pass',a.counts.Pass,'#33956d'],['Fail',a.counts.Fail,'#d65b5b'],['Blocked',a.counts.Blocked,'#e4a64d'],['Not Run',a.counts['Not Run'],'#92a6ba']],a.runs.reduce((sum,r)=>sum+r.results.length,0))}</div><div class="panel"><div class="panel-head"><h3>Bug status</h3><span>${a.bugs.length} bugs</span></div>${breakdownBars(['Open','In Progress','Resolved','Closed'].map((st,i)=>[st,a.bugs.filter(b=>b.status===st).length,['#d65b5b','#e4a64d','#33956d','#92a6ba'][i]]),a.bugs.length)}</div></div>
+ <div class="panel table-panel qa-work-queue"><div class="panel-head"><h3>QA 작업 대기열</h3><span>현재 기록 기반 · 항목 클릭 시 상세 화면 이동</span></div><div class="qa-queue-grid"><button type="button" class="qa-queue-item" data-qa-queue="retest"><strong>${a.bugs.filter(b=>b.status==='Resolved').length}</strong><span>재검증 대기 (Resolved)</span><small>버그 상세에서 QA 재검증 기록</small></button><button type="button" class="qa-queue-item" data-qa-queue="failed"><strong>${a.runs.flatMap(r=>r.results).filter(r=>r.result==='Fail').length}</strong><span>실패한 테스트 결과</span><small>Test Runs에서 상세 확인</small></button><button type="button" class="qa-queue-item" data-qa-queue="not-run"><strong>${a.runs.flatMap(r=>r.results).filter(r=>r.result==='Not Run').length}</strong><span>미실행 테스트 항목</span><small>Test Runs에서 실행 기록</small></button></div></div>
  <div class="dashboard-grid dashboard-secondary"><div class="panel"><div class="panel-head"><h3>Project coverage</h3><span>진행 중(Active) 프로젝트만 표시</span></div>${a.projects.filter(p=>p.status==='Active').map(p=>`<div class="analytics-project"><strong>${esc(p.name)}</strong><span>${linkedCasesFor(p.key)} cases · ${a.bugs.filter(b=>b.project===p.key).length} bugs</span><button class="btn" data-project-key="${esc(p.key)}">상세 보기 →</button></div>`).join('')||'<p class="empty-note">진행 중인 프로젝트가 없습니다.</p>'}</div><div class="panel"><div class="panel-head"><h3>Recent test runs</h3><span>최근 등록 기준</span></div>${analyticsActivity(a)}</div></div>
  ${analyticsNote(a)}`;
 }
@@ -172,7 +185,7 @@ function tcCollectionDetail(){
  const cases=tcCasesInGroup(group);
  return `${heading('TEST CASE WORKSPACE',esc(group.name),'Test Suite에 속한 세부 테스트 케이스를 관리합니다.','<button class="btn primary" type="button" data-action="tc-add-detail" '+(group.project?'':'disabled title="프로젝트를 먼저 연결해 주세요"')+'>＋ Add detail TC</button>')}
  <div class="tc-collection-banner"><div><small>소속 프로젝트 · 변경 불가</small><strong>${esc(projectLabel(group.project))}</strong><span>${esc(group.suite||'세부 분류 미지정')} · 세부 TC ${cases.length}건</span></div><div class="tc-collection-actions"><button class="btn" data-action="tc-back">← Suite 목록</button>${!group.legacy?'<button class="btn" data-action="tc-edit-group">Test Suite 이름 / 정보 수정</button>':''}</div></div>
- <section class="panel tc-sheet"><div class="panel-head"><h3>세부 TC 목록</h3><span>스프레드시트형 목록 · 프로젝트 고정</span></div><div class="table-wrap"><table class="tc-sheet-table tc-detail-table"><thead><tr><th>TC ID</th><th>제목</th><th>스위트</th><th>우선순위</th><th>사전 조건</th><th>테스트 단계</th><th>예상 결과</th><th>최근 결과</th><th>관리</th></tr></thead><tbody>${cases.length?cases.map(c=>`<tr class="detail-click-row" tabindex="0" role="link" aria-label="${esc(c.id)} 세부 TC 보기와 수정" data-row-detail="tc-detail" data-row-id="${esc(c.id)}"><td class="case-id">${esc(c.id)}</td><td class="tc-title-cell">${esc(c.title)}</td><td>${esc(c.suite)}</td><td>${pill(c.priority)}</td><td class="tc-long-cell">${esc(c.preconditions||'—')}</td><td class="tc-long-cell">${esc(c.steps||'—')}</td><td class="tc-long-cell">${esc(c.expected||'—')}</td><td>${pill(c.status||'Not Run')}</td><td><button type="button" class="btn" data-tc-hub-edit="${esc(c.id)}">보기 / 수정</button></td></tr>`).join(''):'<tr><td class="empty-note" colspan="9">세부 TC가 없습니다. Add detail TC로 첫 항목을 등록해 보세요.</td></tr>'}</tbody></table></div></section>`;
+ <section class="panel tc-sheet"><div class="panel-head"><h3>세부 TC 목록</h3><span>스프레드시트형 목록 · 프로젝트 고정</span></div><div class="table-wrap"><table class="tc-sheet-table tc-detail-table"><thead><tr><th>TC ID</th><th>제목</th><th>스위트</th><th>우선순위</th><th>사전 조건</th><th>테스트 단계</th><th>예상 결과</th><th>최근 결과</th><th>관리</th></tr></thead><tbody>${cases.length?cases.map(c=>`<tr class="detail-click-row" tabindex="0" role="link" aria-label="${esc(c.id)} 세부 TC 보기와 수정" data-row-detail="tc-detail" data-row-id="${esc(c.id)}"><td class="case-id">${esc(c.id)}</td><td class="tc-title-cell">${esc(c.title)}</td><td>${esc(c.suite)}</td><td>${pill(c.priority)}</td><td class="tc-long-cell">${esc(c.preconditions||'—')}</td><td class="tc-long-cell">${esc(c.steps||'—')}</td><td class="tc-long-cell">${esc(c.expected||'—')}</td><td>${caseResultPill(c)}</td><td><button type="button" class="btn" data-tc-hub-edit="${esc(c.id)}">보기 / 수정</button></td></tr>`).join(''):'<tr><td class="empty-note" colspan="9">세부 TC가 없습니다. Add detail TC로 첫 항목을 등록해 보세요.</td></tr>'}</tbody></table></div></section>`;
 }
 function openTcForm(id=null,draftId=null){selectedHubEditCaseId=id;selectedWorkshopDraftId=draftId;page='workshop';render()}
 const tcDrafts=()=>Array.isArray(data.tcDrafts)?data.tcDrafts:(data.tcDrafts=[]);
@@ -205,7 +218,7 @@ function workshop(){
  <label class="field"><span>테스트 스위트 *</span><input name="suite" required maxlength="80" value="${esc(draft.suite||group.suite||'')}" placeholder="예: 결제"/></label>
  <label class="field"><span>테스트 케이스 제목 *</span><input name="title" required maxlength="100" value="${esc(draft.title||'')}" placeholder="예: 결제 실패 안내 확인"/></label>
  <label class="field"><span>우선순위</span><select name="priority">${['Low','Medium','High'].map(v=>`<option ${v===(draft.priority||group.priority||'Medium')?'selected':''}>${v}</option>`).join('')}</select></label>
- ${selectedHubEditCaseId?`<label class="field"><span>최근 결과</span><select name="status">${['Not Run','Pass','Fail','Blocked'].map(v=>`<option ${v===(draft.status||'Not Run')?'selected':''}>${v}</option>`).join('')}</select></label>`:''}
+ ${selectedHubEditCaseId?`<div class="qa-info-note" role="note">최근 결과: <strong>${caseResultPill(draft)}</strong> · 결과는 Test Runs에서만 기록합니다. 기존 실행 이력은 수정하지 않습니다.</div>`:''}
  <label class="field"><span>사전 조건</span><textarea name="preconditions" maxlength="1000" rows="3" placeholder="예: 테스트 계정으로 장바구니에 가상 상품이 있다">${esc(draft.preconditions||'')}</textarea></label>
  <label class="field"><span>테스트 단계 *</span><textarea name="steps" maxlength="2000" rows="5" required placeholder="1. 장바구니 열기&#10;2. 수량 변경">${esc(draft.steps||'')}</textarea></label>
  <label class="field"><span>예상 결과 *</span><textarea name="expected" maxlength="1000" rows="3" required placeholder="합계가 수량에 맞게 갱신된다">${esc(draft.expected||'')}</textarea></label>
@@ -239,20 +252,20 @@ function workshopSubmit(mode){
  if(d)Object.assign(d,v);else{d={id:nextWorkshopId(),collectionId:group.id,...v};drafts.push(d)}
  selectedWorkshopDraftId=d.id;save();render();toast('이 묶음에 임시 저장했습니다.');
 }
-function cases(){return `${heading('TEST MANAGEMENT','Test Cases','테스트 시나리오와 실행 기준을 관리합니다.','<button class="btn primary" data-action="new-case">＋ Add test case</button>')}<div class="toolbar"><input class="search" id="case-search" placeholder="⌕  테스트 케이스 검색..." /><select class="filter" id="case-filter"><option value="">All status</option><option ${initialCaseStatus==='Pass'?'selected':''}>Pass</option><option>Fail</option><option>Blocked</option></select><select class="filter" id="case-project-filter" aria-label="프로젝트 진행 상태 필터"><option value="active">진행 중인 프로젝트</option><option value="completed">완료된 프로젝트</option></select></div><div class="panel"><div class="table-wrap"><table><thead><tr><th>CASE ID</th><th>TITLE</th><th>PROJECT</th><th>TEST SUITE</th><th>PRIORITY</th><th>LAST RESULT</th><th>DETAILS</th></tr></thead><tbody id="case-rows">${caseRows(data.cases.filter(c=>matchesProjectStage(c.project,'active')&&(!initialCaseStatus||c.status===initialCaseStatus)&&(!analyticsDrillProject||c.project===analyticsDrillProject)))}</tbody></table></div></div>`}
-function caseRows(rows){return rows.length?rows.map(c=>`<tr class="detail-click-row" tabindex="0" role="link" aria-label="${esc(c.id)} 테스트 케이스 상세 보기" data-row-detail="case" data-row-id="${esc(c.id)}"><td class="case-id">${esc(c.id)}</td><td class="project-name">${esc(c.title)}</td><td>${esc(projectLabel(c.project))}</td><td>${esc(c.suite)}</td><td>${pill(c.priority)}</td><td>${pill(c.status)}</td><td><button type="button" class="btn" data-case-id="${esc(c.id)}">상세 보기 →</button></td></tr>`).join(''):'<tr><td colspan="7" class="empty-note">검색 결과가 없습니다.</td></tr>'}
+function cases(){return `${heading('TEST MANAGEMENT','Test Cases','테스트 시나리오와 실행 기준을 관리합니다.','<button class="btn primary" data-action="new-case">＋ Add test case</button>')}<div class="toolbar"><input class="search" id="case-search" placeholder="⌕  테스트 케이스 검색..." /><select class="filter" id="case-filter"><option value="">All status</option><option ${initialCaseStatus==='Pass'?'selected':''}>Pass</option><option>Fail</option><option>Blocked</option></select><select class="filter" id="case-project-filter" aria-label="프로젝트 진행 상태 필터"><option value="active">진행 중인 프로젝트</option><option value="completed">완료된 프로젝트</option></select></div><div class="panel"><div class="table-wrap"><table><thead><tr><th>CASE ID</th><th>TITLE</th><th>PROJECT</th><th>TEST SUITE</th><th>PRIORITY</th><th>LAST RESULT</th><th>DETAILS</th></tr></thead><tbody id="case-rows">${caseRows(data.cases.filter(c=>matchesProjectStage(c.project,'active')&&(!initialCaseStatus||latestCaseResult(c)===initialCaseStatus)&&(!analyticsDrillProject||c.project===analyticsDrillProject)))}</tbody></table></div></div>`}
+function caseRows(rows){return rows.length?rows.map(c=>`<tr class="detail-click-row" tabindex="0" role="link" aria-label="${esc(c.id)} 테스트 케이스 상세 보기" data-row-detail="case" data-row-id="${esc(c.id)}"><td class="case-id">${esc(c.id)}</td><td class="project-name">${esc(c.title)}</td><td>${esc(projectLabel(c.project))}</td><td>${esc(c.suite)}</td><td>${pill(c.priority)}</td><td>${caseResultPill(c)}</td><td><button type="button" class="btn" data-case-id="${esc(c.id)}">상세 보기 →</button></td></tr>`).join(''):'<tr><td colspan="7" class="empty-note">검색 결과가 없습니다.</td></tr>'}
 function caseDetail(){
  const c=data.cases.find(x=>x.id===selectedCaseId);
  if(!c){selectedCaseId=null;return cases()}
  return `${heading('TEST CASE DETAILS',esc(c.id)+' · '+esc(c.title),'테스트 조건과 예상 결과를 확인하고 수정하세요.','<button class="btn primary" data-action="edit-case">✎ Edit test case</button>')}
  <button type="button" class="btn" data-action="back-cases" style="margin-bottom:16px">← 테스트 케이스 목록으로</button>
- <div class="dashboard-grid"><div class="panel"><div class="panel-head"><h3>Test case information</h3>${pill(c.status)}</div>
+ <div class="dashboard-grid"><div class="panel"><div class="panel-head"><h3>Test case information</h3>${caseResultPill(c)}</div>
  <div class="detail-row"><span>케이스 ID</span><strong>${esc(c.id)}</strong></div>
  <div class="detail-row"><span>이름</span><strong>${esc(c.title)}</strong></div>
  <div class="detail-row"><span>프로젝트</span><strong>${esc(projectLabel(c.project))}</strong></div>
  <div class="detail-row"><span>Test suite</span><strong>${esc(c.suite)}</strong></div>
  <div class="detail-row"><span>Priority</span><strong>${pill(c.priority)}</strong></div>
- <div class="detail-row"><span>Last result</span><strong>${pill(c.status)}</strong></div></div>
+ <div class="detail-row"><span>Last result</span><strong>${caseResultPill(c)}</strong></div>${latestCaseExecution(c.id)?`<button class="btn" data-run-id="${esc(latestCaseExecution(c.id).run.id)}">최근 Test Run 상세 보기 →</button>`:'<p class="muted">아직 실행 기록이 없습니다.</p>'}</div>
  <div class="panel"><div class="panel-head"><h3>Test procedure</h3><span>Demo</span></div>
  <div class="case-section-label">사전 조건</div><div class="case-notes">${esc(c.preconditions||'미작성')}</div>
  <div class="case-section-label">테스트 단계</div><div class="case-notes">${esc(c.steps||'미작성')}</div>
@@ -350,9 +363,27 @@ function recordBugChange(b,description){
  if(!Array.isArray(b.history))b.history=[];
  b.history.push({at:new Date().toISOString(),actor:'QA Tester 01',description});
 }
+function hasPassingVerification(b){return Array.isArray(b.verifications)&&b.verifications.some(v=>v.result==='Pass'&&v.source==='manual-qa');}
 function updateBugStatus(b,next){
  if(!BUG_STATES.includes(next)||b.status===next)return false;
+ // Closing requires a QA re-test record. Pre-existing Closed bugs remain untouched.
+ if(next==='Closed'&&(b.status!=='Resolved'||!hasPassingVerification(b)))return false;
  const previous=b.status;b.status=next;recordBugChange(b,`상태: ${previous} → ${next}`);return true;
+}
+function openBugRetest(){
+ const b=data.bugs.find(x=>x.id===selectedBugId);if(!b||b.status!=='Resolved')return;
+ const links=bugLinks(b.id);
+ $('#modal-root').innerHTML=`<div class="modal-backdrop"><form class="modal" id="bug-retest-form"><h2>QA 재검증 · ${esc(b.id)}</h2><p>개발자가 수정한 버그를 QA가 재검증합니다. Pass → Closed, Fail → Open으로 변경되고 이력이 저장됩니다. 실제 개인정보는 입력하지 마세요.</p><label class="field"><span>검증 결과</span><select name="result"><option>Pass</option><option>Fail</option></select></label><label class="field"><span>확인한 테스트 실행</span><select name="runRef"><option value="">수동 재검증 (Test Run 미연결)</option>${links.map(l=>`<option value="${esc(l.runId)}">${esc(l.runId)} / ${esc(l.caseId)}</option>`).join('')}</select></label><label class="field"><span>재검증 메모 *</span><textarea name="note" minlength="5" maxlength="500" required placeholder="재현 단계 재실행 후 실제 결과를 기록하세요"></textarea></label><div class="modal-actions"><button type="button" class="btn" data-action="close-modal">취소</button><button type="submit" class="btn primary">재검증 저장</button></div></form></div>`;
+ $('#bug-retest-form').addEventListener('submit',e=>{
+  e.preventDefault();const v=Object.fromEntries(new FormData(e.currentTarget).entries());
+  if(!['Pass','Fail'].includes(v.result)||!v.note.trim()||v.note.trim().length<5)return;
+  if(v.runRef&&!links.some(l=>l.runId===v.runRef)){toast('유효한 Test Run을 선택하세요.');return}
+  if(!Array.isArray(b.verifications))b.verifications=[];
+  b.verifications.push({at:new Date().toISOString(),actor:'QA Tester 01',result:v.result,runId:v.runRef||null,note:v.note.trim(),source:'manual-qa'});
+  recordBugChange(b,'QA 재검증 '+v.result+(v.runRef?' · '+v.runRef:''));
+  updateBugStatus(b,v.result==='Pass'?'Closed':'Open');
+  save();$('#modal-root').replaceChildren();render();toast('QA 재검증 결과가 저장되었습니다.');
+ });
 }
 function deleteBugConfirmed(id){
  const index=data.bugs.findIndex(b=>b.id===id);if(index<0)return;
@@ -368,40 +399,41 @@ function openDeleteBug(){
  $('#modal-root').innerHTML=`<div class="modal-backdrop"><div class="modal" role="dialog" aria-modal="true" aria-labelledby="delete-bug-title"><h2 id="delete-bug-title">버그 삭제 · ${esc(b.id)}</h2><p>정말 삭제할까요? 삭제된 버그는 복구할 수 없습니다. 연결된 ${n}개 테스트 결과의 버그 연결도 해제되지만 테스트 결과 자체는 유지됩니다.</p><div class="modal-actions"><button type="button" class="btn" data-action="close-modal">취소</button><button type="button" class="btn danger" data-confirm-delete-bug="${esc(b.id)}">버그 삭제 확인</button></div></div></div>`;
 }
 function bugVisibilityRows(view=bugListView){
- if(view==='completed')return data.bugs.filter(b=>['Resolved','Closed'].includes(b.status));
+ if(view==='completed')return data.bugs.filter(b=>b.status==='Closed');
  if(view==='all')return data.bugs;
- return data.bugs.filter(b=>['Open','In Progress'].includes(b.status));
+ return data.bugs.filter(b=>['Open','In Progress','Resolved'].includes(b.status));
 }
 function bugs(){
  const active=bugVisibilityRows('active').length,closed=bugVisibilityRows('completed').length;
  const visible=bugVisibilityRows();
  const filtered=visible.filter(b=>matchesProjectStage(b.project,'active')&&(!analyticsDrillProject||b.project===analyticsDrillProject)&&(!initialBugStatus|| (initialBugStatus==='active'?['Open','In Progress'].includes(b.status):b.status===initialBugStatus)));
  return `${heading('ISSUE TRACKING','Bug Management','진행 중인 버그와 완료된 버그를 분리해 관리합니다.','<button class="btn primary" data-action="new-bug">＋ Create bug</button>')}
- ${stats([{label:'Total bugs',value:data.bugs.length,icon:'⚑',foot:'등록된 버그'},{label:'Open / In Progress',value:active,icon:'◷',foot:'조치가 필요한 버그'},{label:'Resolved / Closed',value:closed,icon:'✓',foot:'처리된 버그'},{label:'Linked test results',value:data.runs.reduce((sum,r)=>sum+(Array.isArray(r.results)?r.results.filter(x=>x.bugId&&data.bugs.some(b=>b.id===x.bugId)).length:0),0),icon:'☷',foot:'Test Run에서 연결된 결과'}])}
- <div class="project-filter-line project-archive-filter"><span>${bugListView==='completed'?'완료된 버그':bugListView==='all'?'전체 버그':'진행 중인 버그'} · ${visible.length}건</span><label class="project-view-label" for="bug-view-filter">목록 선택 <select id="bug-view-filter" class="filter" aria-label="버그 목록 선택"><option value="active" ${bugListView==='active'?'selected':''}>진행 중 · ${active}건</option><option value="completed" ${bugListView==='completed'?'selected':''}>완료된 버그 · ${closed}건</option><option value="all" ${bugListView==='all'?'selected':''}>전체 버그 · ${data.bugs.length}건</option></select></label></div>
+ ${stats([{label:'Total bugs',value:data.bugs.length,icon:'⚑',foot:'등록된 버그'},{label:'Open / In Progress / Resolved',value:active,icon:'◷',foot:'수정 및 재검증 대기'},{label:'Closed',value:closed,icon:'✓',foot:'재검증 후 종결'},{label:'Linked test results',value:data.runs.reduce((sum,r)=>sum+(Array.isArray(r.results)?r.results.filter(x=>x.bugId&&data.bugs.some(b=>b.id===x.bugId)).length:0),0),icon:'☷',foot:'Test Run에서 연결된 결과'}])}
+ <div class="project-filter-line project-archive-filter"><span>${bugListView==='completed'?'완료된 버그':bugListView==='all'?'전체 버그':'진행 중인 버그 (재검증 대기 포함)'} · ${visible.length}건</span><label class="project-view-label" for="bug-view-filter">목록 선택 <select id="bug-view-filter" class="filter" aria-label="버그 목록 선택"><option value="active" ${bugListView==='active'?'selected':''}>진행 중 + 재검증 대기 · ${active}건</option><option value="completed" ${bugListView==='completed'?'selected':''}>종결(Closed) · ${closed}건</option><option value="all" ${bugListView==='all'?'selected':''}>전체 버그 · ${data.bugs.length}건</option></select></label></div>
  <div class="toolbar bug-toolbar"><input class="search" id="bug-search" aria-label="버그 검색" placeholder="⌕  ID·제목·설명·담당자 검색..." />
  <select class="filter" id="bug-filter" aria-label="버그 상태 필터"><option value="">모든 상태</option><option ${initialBugStatus==='active'?'selected':''} value="active">Open + In Progress</option>${BUG_STATES.map(x=>`<option value="${x}">${x}</option>`).join('')}</select>
  <select class="filter" id="bug-priority-filter" aria-label="우선순위 필터"><option value="">모든 우선순위</option>${BUG_PRIORITIES.map(x=>`<option>${x}</option>`).join('')}</select>
  <select class="filter" id="bug-project-filter" aria-label="프로젝트 진행 상태 필터"><option value="active">진행 중인 프로젝트</option><option value="completed">완료된 프로젝트</option></select></div>
  <div class="panel"><div class="panel-head"><h3>Bug list</h3><span id="bug-result-count">${filtered.length} bugs</span></div><div class="table-wrap"><table><thead><tr><th>BUG ID</th><th>SUMMARY</th><th>PROJECT</th><th>PRIORITY</th><th>ASSIGNEE</th><th>STATUS</th><th>LINKED TESTS</th><th>CHANGE</th><th>DETAILS</th></tr></thead><tbody id="bug-rows">${bugRows(filtered)}</tbody></table></div></div>`;
 }
-function bugRows(rows){return rows.length?rows.map(b=>`<tr class="detail-click-row" tabindex="0" role="link" aria-label="${esc(b.id)} 버그 상세 보기" data-row-detail="bug" data-row-id="${esc(b.id)}"><td class="bug-id">${esc(b.id)}</td><td class="project-name">${esc(b.title)}</td><td><strong>${esc(projectLabel(b.project))}</strong><div class="muted">${esc(b.project)}</div></td><td>${pill(b.priority)}</td><td>${esc(b.owner)}</td><td>${pill(b.status)}</td><td>${bugLinks(b.id).length}</td><td><select class="filter bug-status" data-id="${esc(b.id)}" aria-label="${esc(b.id)} 상태 변경">${BUG_STATES.map(state=>`<option ${state===b.status?'selected':''}>${state}</option>`).join('')}</select></td><td><button type="button" class="btn" data-bug-id="${esc(b.id)}">상세 보기 →</button></td></tr>`).join(''):'<tr><td colspan="9" class="empty-note">조건에 맞는 버그가 없습니다.</td></tr>'}
+function bugRows(rows){return rows.length?rows.map(b=>`<tr class="detail-click-row" tabindex="0" role="link" aria-label="${esc(b.id)} 버그 상세 보기" data-row-detail="bug" data-row-id="${esc(b.id)}"><td class="bug-id">${esc(b.id)}</td><td class="project-name">${esc(b.title)}</td><td><strong>${esc(projectLabel(b.project))}</strong><div class="muted">${esc(b.project)}</div></td><td>${pill(b.priority)}</td><td>${esc(b.owner)}</td><td>${pill(b.status)}</td><td>${bugLinks(b.id).length}</td><td><select class="filter bug-status" data-id="${esc(b.id)}" aria-label="${esc(b.id)} 상태 변경">${BUG_STATES.map(state=>`<option ${state===b.status?'selected':''} ${state==='Closed'&&b.status!=='Closed'&&!hasPassingVerification(b)?'disabled':''}>${state}</option>`).join('')}</select></td><td><button type="button" class="btn" data-bug-id="${esc(b.id)}">상세 보기 →</button></td></tr>`).join(''):'<tr><td colspan="9" class="empty-note">조건에 맞는 버그가 없습니다.</td></tr>'}
 
 function bugDetail(){
  const b=data.bugs.find(x=>x.id===selectedBugId);
  if(!b){selectedBugId=null;return bugs()}
  const links=bugLinks(b.id),history=Array.isArray(b.history)?b.history:[];
- return `${heading('BUG DETAILS',esc(b.id),'버그 정보, 연결된 실패 테스트, 변경 이력을 확인합니다.', '<div class="header-buttons"><button class="btn" data-action="delete-bug">삭제</button><button class="btn primary" data-action="edit-bug">✎ Edit bug</button></div>')}
+ return `${heading('BUG DETAILS',esc(b.id),'버그 정보, 연결된 실패 테스트, 변경 이력을 확인합니다.', '<div class="header-buttons"><button class="btn" data-action="delete-bug">삭제</button>'+(b.status==='Resolved'?'<button class="btn primary" data-action="retest-bug">✓ QA 재검증</button>':'')+'<button class="btn primary" data-action="edit-bug">✎ Edit bug</button></div>')}
  <button class="btn" data-action="back-bugs" style="margin-bottom:16px">← 버그 목록으로</button>
  <div class="dashboard-grid"><div class="panel"><div class="panel-head"><h3>Bug information</h3>${pill(b.status)}</div><div class="detail-row"><span>버그 ID</span><strong>${esc(b.id)}</strong></div><div class="detail-row"><span>제목</span><strong>${esc(b.title)}</strong></div><div class="detail-row"><span>프로젝트</span><strong>${esc(projectLabel(b.project))} (${esc(b.project)})</strong></div><div class="detail-row"><span>우선순위</span><strong>${pill(b.priority)}</strong></div><div class="detail-row"><span>상태</span><strong>${pill(b.status)}</strong></div><div class="detail-row"><span>담당자 (가상)</span><strong>${esc(b.owner)}</strong></div></div>
  <div class="panel"><div class="panel-head"><h3>Reproduction details</h3><span>데모 정보</span></div><div class="detail-row"><span>설명</span><strong class="multiline-detail">${esc(b.description||'아직 작성되지 않음')}</strong></div><div class="detail-row"><span>재현 단계</span><strong class="multiline-detail">${esc(b.steps||'아직 작성되지 않음')}</strong></div></div></div>
  <div class="panel table-panel"><div class="panel-head"><h3>Linked test results</h3><span>${links.length}개 연결</span></div>${links.length?`<div class="table-wrap"><table><thead><tr><th>TEST RUN</th><th>CASE</th><th>RESULT</th><th>GO TO RUN</th></tr></thead><tbody>${links.map(l=>`<tr><td>${esc(l.runName)} (${esc(l.runId)})</td><td>${esc(l.caseId)} · ${esc(l.title)}</td><td>${pill(l.result)}</td><td><button class="btn" data-run-id="${esc(l.runId)}">실행 상세 →</button></td></tr>`).join('')}</tbody></table></div>`:'<p class="empty-note">연결된 테스트 실행 결과가 없습니다. Test Runs에서 Fail 결과를 연결할 수 있습니다.</p>'}</div>
+ <div class="panel table-panel"><div class="panel-head"><h3>QA 재검증 기록</h3><span>${(b.verifications||[]).length}건</span></div>${(b.verifications||[]).length?(b.verifications||[]).slice().reverse().map(v=>`<div class="history-item"><strong>${esc(v.result)} · ${esc(v.runId||'수동 재검증')}</strong><div>${esc(v.note)}</div><small>${esc(v.at?new Date(v.at).toLocaleString('ko-KR'):'')}</small></div>`).join(''):'<p class="empty-note">아직 재검증 기록이 없습니다. Resolved 상태에서 재검증을 기록할 수 있습니다.</p>'}</div>
  <div class="panel table-panel"><div class="panel-head"><h3>Change history</h3><span>${history.length} events</span></div>${history.length?`<div class="history-list">${[...history].reverse().map(h=>`<div class="history-item"><div><strong>${esc(h.description)}</strong><small>${esc(h.actor||'QA Tester 01')} · ${esc(h.at?new Date(h.at).toLocaleString('ko-KR'):'')}</small></div></div>`).join('')}</div>`:'<p class="empty-note">기존 샘플 버그에는 변경 이력이 없습니다. 이후 변경부터 기록됩니다.</p>'}</div>`;
 }
 
 function openEditBug(){
  const b=data.bugs.find(x=>x.id===selectedBugId);if(!b)return;
- $('#modal-root').innerHTML=`<div class="modal-backdrop"><form class="modal" id="edit-bug-form"><h2>버그 수정 · ${esc(b.id)}</h2><p>실제 고객정보나 개인정보를 입력하지 마세요. 버그 ID는 변경할 수 없습니다.</p><label class="field"><span>버그 제목</span><input name="title" maxlength="100" required value="${esc(b.title)}" /></label><label class="field"><span>프로젝트</span><select name="project" required>${data.projects.map(p=>`<option value="${esc(p.key)}" ${p.key===b.project?'selected':''}>${esc(p.name)} (${esc(p.key)})</option>`).join('')}</select></label><label class="field"><span>우선순위</span><select name="priority">${BUG_PRIORITIES.map(v=>`<option ${v===b.priority?'selected':''}>${v}</option>`).join('')}</select></label><label class="field"><span>상태</span><select name="status">${BUG_STATES.map(v=>`<option ${v===b.status?'selected':''}>${v}</option>`).join('')}</select></label><label class="field"><span>담당자 (가상 별칭)</span><select name="owner">${[...new Set([...DEMO_OWNERS,b.owner])].map(v=>`<option ${v===b.owner?'selected':''}>${esc(v)}</option>`).join('')}</select></label><label class="field"><span>버그 설명 (선택)</span><textarea name="description" rows="3" maxlength="1000" placeholder="예: 장바구니 수량이 변경되어도 금액이 갱신되지 않음">${esc(b.description||'')}</textarea></label><label class="field"><span>재현 단계 (선택)</span><textarea name="steps" rows="3" maxlength="1000" placeholder="1. 장바구니 열기  2. 수량 변경">${esc(b.steps||'')}</textarea></label><div class="modal-actions"><button type="button" class="btn" data-action="close-modal">취소</button><button type="submit" class="btn primary">변경 저장</button></div></form></div>`;
+ $('#modal-root').innerHTML=`<div class="modal-backdrop"><form class="modal" id="edit-bug-form"><h2>버그 수정 · ${esc(b.id)}</h2><p>실제 고객정보나 개인정보를 입력하지 마세요. 버그 ID는 변경할 수 없습니다.</p><label class="field"><span>버그 제목</span><input name="title" maxlength="100" required value="${esc(b.title)}" /></label><label class="field"><span>프로젝트</span><select name="project" required>${data.projects.map(p=>`<option value="${esc(p.key)}" ${p.key===b.project?'selected':''}>${esc(p.name)} (${esc(p.key)})</option>`).join('')}</select></label><label class="field"><span>우선순위</span><select name="priority">${BUG_PRIORITIES.map(v=>`<option ${v===b.priority?'selected':''}>${v}</option>`).join('')}</select></label><label class="field"><span>상태</span><select name="status">${BUG_STATES.map(v=>`<option ${v===b.status?'selected':''} ${v==='Closed'&&b.status!=='Closed'&&!hasPassingVerification(b)?'disabled':''}>${v}</option>`).join('')}</select></label><label class="field"><span>담당자 (가상 별칭)</span><select name="owner">${[...new Set([...DEMO_OWNERS,b.owner])].map(v=>`<option ${v===b.owner?'selected':''}>${esc(v)}</option>`).join('')}</select></label><label class="field"><span>버그 설명 (선택)</span><textarea name="description" rows="3" maxlength="1000" placeholder="예: 장바구니 수량이 변경되어도 금액이 갱신되지 않음">${esc(b.description||'')}</textarea></label><label class="field"><span>재현 단계 (선택)</span><textarea name="steps" rows="3" maxlength="1000" placeholder="1. 장바구니 열기  2. 수량 변경">${esc(b.steps||'')}</textarea></label><div class="modal-actions"><button type="button" class="btn" data-action="close-modal">취소</button><button type="submit" class="btn primary">변경 저장</button></div></form></div>`;
  $('#edit-bug-form').addEventListener('submit',e=>{
  e.preventDefault();const v=Object.fromEntries(new FormData(e.currentTarget).entries());
  if(!v.title.trim()||!data.projects.some(p=>p.key===v.project)||!BUG_PRIORITIES.includes(v.priority)||!BUG_STATES.includes(v.status)||!v.owner){toast('입력값을 확인해 주세요.');return}
@@ -410,7 +442,7 @@ function openEditBug(){
   const next=typeof v[key]==='string'?v[key].trim():'';
   if((b[key]||'')!==next){changed.push(label);b[key]=next}
  }
- if(b.status!==v.status){const old=b.status;updateBugStatus(b,v.status);changed.push(`상태 ${old} → ${v.status}`)}
+ if(b.status!==v.status){const old=b.status;if(!updateBugStatus(b,v.status)){toast('Closed 전에는 QA 재검증 Pass 기록이 필요합니다.');return}changed.push(`상태 ${old} → ${v.status}`)}
  if(changed.length){recordBugChange(b,'정보 수정: '+changed.join(', '));save()}
  $('#modal-root').replaceChildren();render();toast(changed.length?'버그 변경 사항을 저장했습니다.':'변경된 내용이 없습니다.');
  });
@@ -481,7 +513,7 @@ function settings(){
  <div class="panel"><div class="panel-head"><h3>Privacy & limitations</h3><span>Portfolio demo</span></div>
  <p class="settings-copy">별도의 로그인·서버 DB·파일 업로드 API는 없습니다. 작성 내용은 사용 중인 브라우저의 localStorage에 저장됩니다.</p>
  <p class="settings-copy">실제 이름, 이메일, 전화번호, 주문 내역, 고객정보, 비밀키 등은 입력하지 마세요. 내보낸 백업에는 입력한 텍스트가 그대로 포함됩니다.</p>
- <p class="settings-copy">브라우저 저장 데이터는 기기 또는 브라우저가 달라지면 공유되지 않으며, 삭제될 수 있습니다. 중요한 데모 작업은 JSON 백업을 보관하세요.</p></div></div>
+ <p class="settings-copy">브라우저 저장 데이터는 기기 또는 브라우저가 달라지면 공유되지 않으며, 삭제될 수 있습니다. 중요한 데모 작업은 JSON 백업을 보관하세요.</p><p class="settings-copy"><strong>기록 보존 안내:</strong> TC의 최근 결과는 실행 이력에서 계산하며, 버그를 Closed로 종결하려면 QA 재검증 Pass 기록이 필요합니다. 서버 저장과 다중 사용자 동기화는 지원하지 않습니다.</p></div></div>
  <div class="panel table-panel"><div class="panel-head"><h3>Reset demo data</h3><span>되돌릴 수 없는 작업</span></div><p class="settings-copy">현재 브라우저 데이터를 최초 예시 데이터로 되돌립니다. 백업하지 않은 수정 내역은 사라집니다.</p><button type="button" class="btn danger-outline" data-action="reset-demo">데모 데이터 초기화</button></div>
  ${localDataWarning?'<p class="settings-warning">기존 저장 데이터가 손상되어 기본 데모로 표시 중입니다. 초기화하기 전 브라우저 저장 데이터를 별도로 확인해 주세요.</p>':''}`;
 }
@@ -596,6 +628,13 @@ document.addEventListener('keydown',event=>{
 });
 // One delegated handler works for buttons added AFTER the page was rendered.
 document.addEventListener('click',e=>{
+ const queue=e.target.closest('[data-qa-queue]');
+ if(queue){
+  if(queue.dataset.qaQueue==='retest'){page='bugs';bugListView='active';selectedBugId=null;render();const filter=$('#bug-filter');if(filter){filter.value='Resolved';filterBugs()}return}
+  const wanted=queue.dataset.qaQueue==='failed'?'Fail':'Not Run';
+  const target=data.runs.find(r=>(!analyticsProject||r.project===analyticsProject)&&Array.isArray(r.results)&&r.results.some(x=>x.result===wanted));
+  page='runs';selectedRunId=target?.id||null;render();if(!target)toast('조건에 맞는 Test Run이 없습니다.');return;
+ }
  const suiteJump=e.target.closest('[data-open-project-suites]');
  if(suiteJump){const key=suiteJump.dataset.openProjectSuites;const project=data.projects.find(p=>p.key===key);if(!project)return;workspaceMode='tc';workspaceMenuOpen=false;tcHubProject=project.status==='Completed'?'completed':'active';tcHubFocusedProject=key;tcHubQuery='';selectedProjectKey=null;selectedTcCollectionId=null;page='tc-hub';render();return}
  const tcGroupButton=e.target.closest('[data-tc-group]');
@@ -639,6 +678,7 @@ document.addEventListener('click',e=>{
   if(a==='confirm-reset'){resetDemo();return}
   if(a==='edit-project'){openEditProject();return}
   if(a==='edit-bug'){openEditBug();return}
+  if(a==='retest-bug'){openBugRetest();return}
   if(a==='delete-bug'){openDeleteBug();return}
   if(a==='back-bugs'){selectedBugId=null;render();return}
   if(a==='edit-case'){openEditCase();return}
@@ -665,9 +705,9 @@ document.addEventListener('change',e=>{
  const select=e.target.closest('.bug-status');if(!select)return;
  const b=data.bugs.find(x=>x.id===select.dataset.id);
  if(!b)return;
- if(updateBugStatus(b,select.value)){save();render();toast(`${b.id} 상태가 변경되었습니다.`)}
+ if(updateBugStatus(b,select.value)){save();render();toast(`${b.id} 상태가 변경되었습니다.`)}else{render();toast('Closed 처리 전 QA 재검증 Pass 기록이 필요합니다.')}
 });
-function filterCases(){let q=$('#case-search').value.toLowerCase(),s=$('#case-filter').value,project=$('#case-project-filter').value;$('#case-rows').innerHTML=caseRows(data.cases.filter(c=>(c.id+c.title+c.suite+projectLabel(c.project)).toLowerCase().includes(q)&&(!s||c.status===s)&&matchesProjectStage(c.project,project)))}
+function filterCases(){let q=$('#case-search').value.toLowerCase(),s=$('#case-filter').value,project=$('#case-project-filter').value;$('#case-rows').innerHTML=caseRows(data.cases.filter(c=>(c.id+c.title+c.suite+projectLabel(c.project)).toLowerCase().includes(q)&&(!s||latestCaseResult(c)===s)&&matchesProjectStage(c.project,project)))}
 function filterBugs(){
  const q=$('#bug-search').value.trim().toLocaleLowerCase(),status=$('#bug-filter').value,priority=$('#bug-priority-filter').value,project=$('#bug-project-filter').value;
  const filtered=bugVisibilityRows().filter(b=>[b.id,b.title,b.project,projectLabel(b.project),b.description||'',b.steps||'',b.owner].some(v=>String(v).toLocaleLowerCase().includes(q))&&(!status||(status==='active'?['Open','In Progress'].includes(b.status):b.status===status))&&(!priority||b.priority===priority)&&matchesProjectStage(b.project,project));

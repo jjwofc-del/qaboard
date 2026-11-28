@@ -164,3 +164,7 @@ button:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-vis
 .qa-linked-cases-link>span{color:var(--muted)}
 .qa-linked-cases-link>strong{margin-left:auto;text-align:right}
 .tc-focus-clear{max-width:100%;white-space:normal;text-align:left}
+
+/* v1.1.6 QA workflow */
+.qa-info-note{padding:12px;border:1px solid #dce7ee;border-radius:8px;font-size:12px;color:#405c6b;background:#f2f8fc;margin:12px 0}
+.qa-work-queue{margin-top:16px}.qa-queue-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.qa-queue-item{font:inherit;border:1px solid #e0eae4;background:#f8fbf9;border-radius:9px;padding:15px;text-align:left;cursor:pointer;display:flex;flex-direction:column;gap:7px}.qa-queue-item strong{font-size:23px;color:#187c61}.qa-queue-item span{font-size:12px;font-weight:700;color:#2b473d}.qa-queue-item small{font-size:10px;color:#79928a}.qa-queue-item:hover,.qa-queue-item:focus-visible{outline:2px solid #68bb9c;outline-offset:1px}@media(max-width:700px){.qa-queue-grid{grid-template-columns:1fr}}

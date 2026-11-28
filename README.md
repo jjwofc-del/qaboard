@@ -73,3 +73,7 @@ GitHub Pages에서 바로 배포할 수 있는 정적 웹앱입니다.
 - Bug Management는 진행 중(Open/In Progress)과 완료(Resolved/Closed) 목록을 분리하며 완료된 버그는 별도 선택으로 조회합니다. 삭제하지 않습니다.
 - Bug list와 Test Runs에는 프로젝트 이름 및 프로젝트 키를 함께 표시합니다.
 - 기존 브라우저 localStorage 키(`qaboard-demo`)는 변경하지 않았습니다.
+
+
+## v1.1.6 QA workflow update
+See `CHANGELOG-v1.1.6.md` for Test Run-derived results, QA retest workflow, Dashboard action queue and backup notes.
