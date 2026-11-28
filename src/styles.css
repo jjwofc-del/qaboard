@@ -176,3 +176,9 @@ button:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-vis
 .tc-mode .top-back-button:hover,.tc-mode .top-back-button:focus-visible{background:#dceefe;outline-color:#80acd6}
 .top-back-button[hidden]{display:none!important}
 @media(max-width:620px){.top-back-button{font-size:11px;padding:7px 9px}.top-actions{gap:7px}}
+
+/* v1.1.9 — reports two-stage scope picker */
+.report-scope-controls{display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:flex-end}
+.report-scope-controls .analytics-selector{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.report-scope-controls .filter{max-width:270px}
+@media(max-width:700px){.report-scope-controls{justify-content:flex-start;width:100%}.report-scope-controls .analytics-selector{width:100%}.report-scope-controls .filter{max-width:none;flex:1}}

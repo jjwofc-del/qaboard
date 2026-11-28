@@ -1,0 +1,17 @@
+const fs=require('fs'),vm=require('vm'),assert=require('node:assert/strict');
+const source=fs.readFileSync(__dirname+'/src/app.js','utf8');
+const src=source.split("document.addEventListener('click',event=>")[0];
+const saved={projects:[{key:'A',name:'Active shop',status:'Active'},{key:'R',name:'Review portal',status:'Review'},{key:'C',name:'Completed app',status:'Completed'}],cases:[{id:'TC-A',project:'A'},{id:'TC-C',project:'C'}],runs:[{id:'RUN-A',project:'A',results:[{caseId:'TC-A',result:'Pass'}]},{id:'RUN-C',project:'C',results:[{caseId:'TC-C',result:'Fail'}]}],bugs:[{id:'BUG-A',title:'Active open',project:'A',status:'Open'},{id:'BUG-R',title:'Review retest',project:'R',status:'Resolved'},{id:'BUG-C',title:'Archived closed',project:'C',status:'Closed'},{id:'BUG-D',title:'Archived open',project:'C',status:'Open'}]};
+const nodes={};const ctx={localStorage:{getItem:()=>JSON.stringify(saved),setItem:()=>{}},document:{addEventListener:()=>{},querySelector:(id)=>nodes[id]??null,querySelectorAll:()=>[],body:{classList:{toggle:()=>{}}}},console,setTimeout:()=>{},Date,JSON,FormData:class{},window:{}};
+vm.createContext(ctx);vm.runInContext(src,ctx);const run=e=>vm.runInContext(e,ctx);
+let html=run('reports()');assert.match(html,/id="report-project-stage"/);assert.match(html,/id="report-project"/);assert.match(html,/Active shop/);assert.match(html,/Review portal/);assert.doesNotMatch(html,/Completed app/);
+assert.equal(run("analyticsFor('',reportProjectStage).counts.Pass"),1);assert.equal(run("analyticsFor('',reportProjectStage).counts.Fail"),0);
+run("reportProjectStage='completed'");html=run('reports()');assert.match(html,/Completed app/);assert.doesNotMatch(html,/Active shop/);assert.equal(run("analyticsFor('',reportProjectStage).counts.Fail"),1);
+run("analyticsProject='C'");assert.equal(run('reportRows().length'),1);assert.equal(run('analyticsFor(analyticsProject,reportProjectStage).bugs.length'),2);
+run("reportProjectStage='active'");html=run('reports()');assert.equal(run('analyticsProject'), '');
+html=run('bugs()');assert.match(html,/id="bug-project-filter"/);assert.match(html,/id="bug-view-filter"/);assert.doesNotMatch(html,/id="bug-filter"/);assert.doesNotMatch(html,/value="all"/);assert.match(html,/Review retest/);assert.doesNotMatch(html,/Archived open/);
+run("bugProjectStage='completed'");html=run('bugs()');assert.match(html,/Archived open/);assert.doesNotMatch(html,/Active open/);
+run("bugListView='completed'");html=run('bugs()');assert.match(html,/Archived closed/);assert.doesNotMatch(html,/Archived open/);
+assert(source.includes("case 'bugProjectStage':bugProjectStage=value")&&source.includes("case 'reportProjectStage':reportProjectStage=value"));
+const index=fs.readFileSync(__dirname+'/index.html','utf8');assert.match(index,/app\.js\?v=119/);
+console.log('PASS v1.1.9: bug project/status filters, report group and project choice, scoped stats, CSV, back state, assets');

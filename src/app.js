@@ -46,6 +46,8 @@ let selectedBugId=null;
 let initialCaseStatus='';
 let initialBugStatus='';
 let bugListView='active';
+let bugProjectStage='active';
+let reportProjectStage='active';
 let runProjectView='active';
 let initialProjectStatus='';
 let projectListFilter='all';
@@ -92,11 +94,12 @@ function openEditProject(){const p=data.projects.find(x=>x.key===selectedProject
 
 // Stage 6 analytics: use actual case-level Test Run results, not legacy sample counters.
 // Legacy Test Runs have only aggregate sample counts, and are deliberately excluded.
-function analyticsFor(project=''){
- const cases=data.cases.filter(c=>!project||c.project===project);
- const runs=data.runs.filter(r=>(!project||r.project===project)&&Array.isArray(r.results));
- const legacyRuns=data.runs.filter(r=>(!project||r.project===project)&&!Array.isArray(r.results));
- const bugs=data.bugs.filter(b=>!project||b.project===project);
+function analyticsFor(project='',stage=''){
+ const included=key=>project?key===project:!stage||matchesProjectStage(key,stage);
+ const cases=data.cases.filter(c=>included(c.project));
+ const runs=data.runs.filter(r=>included(r.project)&&Array.isArray(r.results));
+ const legacyRuns=data.runs.filter(r=>included(r.project)&&!Array.isArray(r.results));
+ const bugs=data.bugs.filter(b=>included(b.project));
  const counts={Pass:0,Fail:0,Blocked:0,'Not Run':0};
  for(const r of runs)for(const entry of r.results){
   if(Object.hasOwn(counts,entry.result))counts[entry.result]++;
@@ -104,9 +107,9 @@ function analyticsFor(project=''){
  }
  const executed=counts.Pass+counts.Fail+counts.Blocked;
  const passRate=executed>0?Math.round(counts.Pass/executed*100):null;
- const activeBugs=bugs.filter(b=>b.status==='Open'||b.status==='In Progress').length;
- const projects=project?data.projects.filter(p=>p.key===project):data.projects;
- return {cases,runs,legacyRuns,bugs,counts,executed,passRate,activeBugs,projects,totalRuns:data.runs.filter(r=>!project||r.project===project).length};
+ const activeBugs=bugs.filter(b=>b.status==='Open'||b.status==='In Progress'||b.status==='Resolved').length;
+ const projects=data.projects.filter(p=>included(p.key));
+ return {cases,runs,legacyRuns,bugs,counts,executed,passRate,activeBugs,projects,totalRuns:data.runs.filter(r=>included(r.project)).length};
 }
 function analyticsSelector(){return `<label class="analytics-selector">프로젝트 <select class="filter" id="analytics-project" aria-label="대시보드 및 리포트 프로젝트 선택"><option value="">전체 프로젝트</option>${data.projects.map(p=>`<option value="${esc(p.key)}" ${analyticsProject===p.key?'selected':''}>${esc(p.name)} (${esc(p.key)})</option>`).join('')}</select></label>`}
 function analyticsNote(a){return `<p class="analytics-note">실행 결과는 새 Test Run의 케이스별 결과만 집계합니다. 기존 샘플 Test Run ${a.legacyRuns.length}개는 제외합니다. ${a.executed===0?'아직 결과가 기록된 실행이 없어 Pass rate를 표시하지 않습니다.':'Pass rate = Pass ÷ (Pass + Fail + Blocked). Not Run은 분모에서 제외합니다.'} 프로젝트 진행률은 별도 수동 입력값입니다.</p>`}
@@ -412,16 +415,15 @@ function bugVisibilityRows(view=bugListView){
  return data.bugs.filter(b=>['Open','In Progress','Resolved'].includes(b.status));
 }
 function bugs(){
- const active=bugVisibilityRows('active').length,closed=bugVisibilityRows('completed').length;
- const visible=bugVisibilityRows();
- const filtered=visible.filter(b=>matchesProjectStage(b.project,'active')&&(!analyticsDrillProject||b.project===analyticsDrillProject)&&(!initialBugStatus|| (initialBugStatus==='active'?['Open','In Progress'].includes(b.status):b.status===initialBugStatus)));
+ const active=bugVisibilityRows('active').filter(b=>matchesProjectStage(b.project,bugProjectStage)).length,closed=bugVisibilityRows('completed').filter(b=>matchesProjectStage(b.project,bugProjectStage)).length;
+ const visible=bugVisibilityRows().filter(b=>matchesProjectStage(b.project,bugProjectStage));
+ const filtered=visible.filter(b=>matchesProjectStage(b.project,bugProjectStage)&&(!analyticsDrillProject||b.project===analyticsDrillProject)&&(!initialBugStatus|| (initialBugStatus==='active'?['Open','In Progress'].includes(b.status):b.status===initialBugStatus)));
  return `${heading('ISSUE TRACKING','Bug Management','진행 중인 버그와 완료된 버그를 분리해 관리합니다.',`<button class="btn primary" data-action="new-bug" ${activeProjects().length?'':'disabled title="진행 중인 프로젝트가 없습니다"'}>＋ Create bug</button>`)}
- ${stats([{label:'Total bugs',value:data.bugs.length,icon:'⚑',foot:'등록된 버그'},{label:'Open / In Progress / Resolved',value:active,icon:'◷',foot:'수정 및 재검증 대기'},{label:'Closed',value:closed,icon:'✓',foot:'재검증 후 종결'},{label:'Linked test results',value:data.runs.reduce((sum,r)=>sum+(Array.isArray(r.results)?r.results.filter(x=>x.bugId&&data.bugs.some(b=>b.id===x.bugId)).length:0),0),icon:'☷',foot:'Test Run에서 연결된 결과'}])}
- <div class="project-filter-line project-archive-filter"><span>${bugListView==='completed'?'완료된 버그':bugListView==='all'?'전체 버그':'진행 중인 버그 (재검증 대기 포함)'} · ${visible.length}건</span><label class="project-view-label" for="bug-view-filter">목록 선택 <select id="bug-view-filter" class="filter" aria-label="버그 목록 선택"><option value="active" ${bugListView==='active'?'selected':''}>진행 중 + 재검증 대기 · ${active}건</option><option value="completed" ${bugListView==='completed'?'selected':''}>종결(Closed) · ${closed}건</option><option value="all" ${bugListView==='all'?'selected':''}>전체 버그 · ${data.bugs.length}건</option></select></label></div>
+ ${stats([{label:'Total bugs',value:data.bugs.filter(b=>matchesProjectStage(b.project,bugProjectStage)).length,icon:'⚑',foot:'등록된 버그'},{label:'Open / In Progress / Resolved',value:active,icon:'◷',foot:'수정 및 재검증 대기'},{label:'Closed',value:closed,icon:'✓',foot:'재검증 후 종결'},{label:'Linked test results',value:data.runs.reduce((sum,r)=>sum+(matchesProjectStage(r.project,bugProjectStage)&&Array.isArray(r.results)?r.results.filter(x=>x.bugId&&data.bugs.some(b=>b.id===x.bugId)).length:0),0),icon:'☷',foot:'Test Run에서 연결된 결과'}])}
+ <div class="project-filter-line project-archive-filter"><span>${bugListView==='completed'?'종결된 버그':'미종결 버그'} · ${visible.length}건</span><label class="project-view-label" for="bug-view-filter">버그 상태 <select id="bug-view-filter" class="filter" aria-label="버그 목록 선택"><option value="active" ${bugListView==='active'?'selected':''}>미종결 버그 (Open / In Progress / Resolved) · ${active}건</option><option value="completed" ${bugListView==='completed'?'selected':''}>종결된 버그 (Closed) · ${closed}건</option></select></label></div>
  <div class="toolbar bug-toolbar"><input class="search" id="bug-search" aria-label="버그 검색" placeholder="⌕  ID·제목·설명·담당자 검색..." />
- <select class="filter" id="bug-filter" aria-label="버그 상태 필터"><option value="">모든 상태</option><option ${initialBugStatus==='active'?'selected':''} value="active">Open + In Progress</option>${BUG_STATES.map(x=>`<option value="${x}">${x}</option>`).join('')}</select>
  <select class="filter" id="bug-priority-filter" aria-label="우선순위 필터"><option value="">모든 우선순위</option>${BUG_PRIORITIES.map(x=>`<option>${x}</option>`).join('')}</select>
- <select class="filter" id="bug-project-filter" aria-label="프로젝트 진행 상태 필터"><option value="active">진행 중인 프로젝트</option><option value="completed">완료된 프로젝트</option></select></div>
+ <label class="project-view-label" for="bug-project-filter">프로젝트 구분 <select class="filter" id="bug-project-filter" aria-label="프로젝트 구분"><option value="active" ${bugProjectStage==='active'?'selected':''}>진행 중인 프로젝트</option><option value="completed" ${bugProjectStage==='completed'?'selected':''}>완료된 프로젝트</option></select></label></div>
  <div class="panel"><div class="panel-head"><h3>Bug list</h3><span id="bug-result-count">${filtered.length} bugs</span></div><div class="table-wrap"><table><thead><tr><th>BUG ID</th><th>SUMMARY</th><th>PROJECT</th><th>PRIORITY</th><th>ASSIGNEE</th><th>STATUS</th><th>LINKED TESTS</th><th>CHANGE</th><th>DETAILS</th></tr></thead><tbody id="bug-rows">${bugRows(filtered)}</tbody></table></div></div>`;
 }
 function bugRows(rows){return rows.length?rows.map(b=>`<tr class="detail-click-row" tabindex="0" role="link" aria-label="${esc(b.id)} 버그 상세 보기" data-row-detail="bug" data-row-id="${esc(b.id)}"><td class="bug-id">${esc(b.id)}</td><td class="project-name">${esc(b.title)}</td><td><strong>${esc(projectLabel(b.project))}</strong><div class="muted">${esc(b.project)}</div></td><td>${pill(b.priority)}</td><td>${esc(b.owner)}</td><td>${pill(b.status)}</td><td>${bugLinks(b.id).length}</td><td><select class="filter bug-status" data-id="${esc(b.id)}" aria-label="${esc(b.id)} 상태 변경">${BUG_STATES.map(state=>`<option ${state===b.status?'selected':''} ${state==='Closed'&&b.status!=='Closed'&&!hasPassingVerification(b)?'disabled':''}>${state}</option>`).join('')}</select></td><td><button type="button" class="btn" data-bug-id="${esc(b.id)}">상세 보기 →</button></td></tr>`).join(''):'<tr><td colspan="9" class="empty-note">조건에 맞는 버그가 없습니다.</td></tr>'}
@@ -456,16 +458,21 @@ function openEditBug(){
  });
 }
 
+function reportScopeSelector(){
+ const grouped=data.projects.filter(p=>matchesProjectStage(p.key,reportProjectStage));
+ return `<div class="report-scope-controls"><label class="analytics-selector">프로젝트 구분 <select class="filter" id="report-project-stage" aria-label="리포트 프로젝트 상태"><option value="active" ${reportProjectStage==='active'?'selected':''}>진행 중인 프로젝트</option><option value="completed" ${reportProjectStage==='completed'?'selected':''}>완료된 프로젝트</option></select></label><label class="analytics-selector">세부 프로젝트 <select class="filter" id="report-project" aria-label="리포트 개별 프로젝트 선택"><option value="">해당 그룹 전체</option>${grouped.map(p=>`<option value="${esc(p.key)}" ${analyticsProject===p.key?'selected':''}>${esc(p.name)} (${esc(p.key)})</option>`).join('')}</select></label></div>`;
+}
 function reports(){
- const a=analyticsFor(analyticsProject);
+ if(analyticsProject&&!data.projects.some(p=>p.key===analyticsProject&&matchesProjectStage(p.key,reportProjectStage)))analyticsProject='';
+ const a=analyticsFor(analyticsProject,reportProjectStage);
  const total=a.counts.Pass+a.counts.Fail+a.counts.Blocked+a.counts['Not Run'];
- return `${heading('QUALITY REPORTS','Reports','선택한 프로젝트의 테스트 실행·버그 분포를 분석합니다.',analyticsSelector())}
+ return `${heading('QUALITY REPORTS','Reports','선택한 프로젝트의 테스트 실행·버그 분포를 분석합니다.',reportScopeSelector())}
  ${stats([{label:'Executed checks',value:a.executed,icon:'▷',foot:'Not Run 제외'},{label:'Pass rate',value:a.passRate===null?'—':a.passRate+'%',icon:'✓',foot:'실행 결과 기준'},{label:'Failed checks',value:a.counts.Fail,icon:'!',foot:'테스트 실행 Fail 결과'},{label:'Open bugs',value:a.activeBugs,icon:'⚑',foot:'미해결 버그'}])}
  <div class="dashboard-grid"><div class="panel"><div class="panel-head"><h3>Test result distribution</h3><span>총 ${total} case executions</span></div>${breakdownBars([['Pass',a.counts.Pass,'#33956d'],['Fail',a.counts.Fail,'#d65b5b'],['Blocked',a.counts.Blocked,'#e4a64d'],['Not Run',a.counts['Not Run'],'#92a6ba']],total)}</div><div class="panel"><div class="panel-head"><h3>Bug lifecycle</h3><span>총 ${a.bugs.length} bugs</span></div>${breakdownBars(['Open','In Progress','Resolved','Closed'].map((st,i)=>[st,a.bugs.filter(b=>b.status===st).length,['#d65b5b','#e4a64d','#33956d','#92a6ba'][i]]),a.bugs.length)}</div></div>
  <div class="panel table-panel"><div class="panel-head"><h3>Project quality breakdown</h3><span>실제 저장된 데이터만 사용</span></div><div class="table-wrap"><table><thead><tr><th>PROJECT</th><th>TEST CASES</th><th>RUNS (TRACKED)</th><th>PASS</th><th>FAIL</th><th>BLOCKED</th><th>NOT RUN</th><th>PASS RATE</th><th>OPEN BUGS</th></tr></thead><tbody>${a.projects.map(p=>{const x=analyticsFor(p.key);return `<tr><td class="project-name">${esc(p.name)}</td><td>${x.cases.length}</td><td>${x.runs.length}</td><td>${x.counts.Pass}</td><td>${x.counts.Fail}</td><td>${x.counts.Blocked}</td><td>${x.counts['Not Run']}</td><td>${x.passRate===null?'—':x.passRate+'%'}</td><td>${x.activeBugs}</td></tr>`}).join('')||'<tr><td colspan="9" class="empty-note">프로젝트가 없습니다.</td></tr>'}</tbody></table></div></div>
  <div class="report-actions"><button type="button" class="btn primary" data-action="export-report">↓ Export report CSV</button><span>CSV는 현재 브라우저에서 생성됩니다. 개인정보를 입력하지 마세요.</span></div>${analyticsNote(a)}`;
 }
-function reportRows(){const a=analyticsFor(analyticsProject);return a.projects.map(p=>{const x=analyticsFor(p.key);return [p.key,p.name,x.cases.length,x.runs.length,x.counts.Pass,x.counts.Fail,x.counts.Blocked,x.counts['Not Run'],x.passRate===null?'N/A':x.passRate+'%',x.activeBugs]})}
+function reportRows(){const a=analyticsFor(analyticsProject,reportProjectStage);return a.projects.map(p=>{const x=analyticsFor(p.key);return [p.key,p.name,x.cases.length,x.runs.length,x.counts.Pass,x.counts.Fail,x.counts.Blocked,x.counts['Not Run'],x.passRate===null?'N/A':x.passRate+'%',x.activeBugs]})}
 function csvValue(value){let s=String(value??'');if(/^[\s]*[=+@\-\t\r]/.test(s))s="'"+s;return '"'+s.replace(/"/g,'""')+'"'}
 function reportCSV(){const head=['project_key','project_name','test_cases','tracked_runs','pass','fail','blocked','not_run','pass_rate','open_bugs'];return [head,...reportRows()].map(r=>r.map(csvValue).join(',')).join('\r\n')+'\r\n'}
 function exportReport(){const blob=new Blob(['\uFEFF',reportCSV()],{type:'text/csv;charset=utf-8;'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='qaboard-quality-report.csv';document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);toast('CSV 리포트를 저장했습니다.')}
@@ -540,11 +547,11 @@ function updateNavigationCounts(){
 }
 // In-app navigation history preserves the previous page, selected detail and workspace.
 // Snapshots remain in memory only; they never affect QA records or browser storage.
-const navigationFields=['page','workspaceMode','selectedProjectKey','selectedCaseId','selectedRunId','selectedBugId','selectedTcCollectionId','selectedTcCollectionEdit','selectedHubEditCaseId','selectedWorkshopDraftId','tcHubFocusedProject','tcHubProject','tcHubQuery','projectListFilter','runProjectView','bugListView','analyticsProject','analyticsDrillProject','initialCaseStatus','initialBugStatus','initialProjectStatus'];
+const navigationFields=['page','workspaceMode','selectedProjectKey','selectedCaseId','selectedRunId','selectedBugId','selectedTcCollectionId','selectedTcCollectionEdit','selectedHubEditCaseId','selectedWorkshopDraftId','tcHubFocusedProject','tcHubProject','tcHubQuery','projectListFilter','runProjectView','bugListView','bugProjectStage','reportProjectStage','analyticsProject','analyticsDrillProject','initialCaseStatus','initialBugStatus','initialProjectStatus'];
 const navigationStack=[];
 let lastRenderedNavigation=null;
 let restoringNavigation=false;
-function navigationSnapshot(){return Object.fromEntries(navigationFields.map(name=>[name,({page,workspaceMode,selectedProjectKey,selectedCaseId,selectedRunId,selectedBugId,selectedTcCollectionId,selectedTcCollectionEdit,selectedHubEditCaseId,selectedWorkshopDraftId,tcHubFocusedProject,tcHubProject,tcHubQuery,projectListFilter,runProjectView,bugListView,analyticsProject,analyticsDrillProject,initialCaseStatus,initialBugStatus,initialProjectStatus})[name]]))}
+function navigationSnapshot(){return Object.fromEntries(navigationFields.map(name=>[name,({page,workspaceMode,selectedProjectKey,selectedCaseId,selectedRunId,selectedBugId,selectedTcCollectionId,selectedTcCollectionEdit,selectedHubEditCaseId,selectedWorkshopDraftId,tcHubFocusedProject,tcHubProject,tcHubQuery,projectListFilter,runProjectView,bugListView,bugProjectStage,reportProjectStage,analyticsProject,analyticsDrillProject,initialCaseStatus,initialBugStatus,initialProjectStatus})[name]]))}
 function navigationIdentity(state){return JSON.stringify([state.workspaceMode,state.page,state.selectedProjectKey,state.selectedCaseId,state.selectedRunId,state.selectedBugId,state.selectedTcCollectionId,state.selectedTcCollectionEdit,state.selectedHubEditCaseId,state.selectedWorkshopDraftId,state.tcHubFocusedProject])}
 function trackNavigation(){
  const next=navigationSnapshot();
@@ -570,6 +577,7 @@ function navigateBack(){
    case 'tcHubFocusedProject':tcHubFocusedProject=value;break;case 'tcHubProject':tcHubProject=value;break;
    case 'tcHubQuery':tcHubQuery=value;break;case 'projectListFilter':projectListFilter=value;break;
    case 'runProjectView':runProjectView=value;break;case 'bugListView':bugListView=value;break;
+   case 'bugProjectStage':bugProjectStage=value;break;case 'reportProjectStage':reportProjectStage=value;break;
    case 'analyticsProject':analyticsProject=value;break;case 'analyticsDrillProject':analyticsDrillProject=value;break;
    case 'initialCaseStatus':initialCaseStatus=value;break;case 'initialBugStatus':initialBugStatus=value;break;
    case 'initialProjectStatus':initialProjectStatus=value;break;
@@ -620,13 +628,16 @@ function bindPage(){
  let cs=$('#case-search');if(cs)cs.addEventListener('input',filterCases);
  let cf=$('#case-filter');if(cf)cf.addEventListener('change',filterCases);
  let ap=$('#analytics-project');if(ap)ap.addEventListener('change',e=>{analyticsProject=e.target.value;render()});
+ let reportStage=$('#report-project-stage');if(reportStage)reportStage.addEventListener('change',e=>{reportProjectStage=e.target.value==='completed'?'completed':'active';analyticsProject='';render()});
+ let reportChoice=$('#report-project');if(reportChoice)reportChoice.addEventListener('change',e=>{analyticsProject=e.target.value;render()});
  let cpf=$('#case-project-filter');if(cpf)cpf.addEventListener('change',filterCases);
  let runView=$('#run-project-view');if(runView)runView.addEventListener('change',e=>{runProjectView=e.target.value==='completed'?'completed':'active';selectedRunId=null;render()});
  let projectView=$('#project-view-filter');if(projectView)projectView.addEventListener('change',e=>{projectListFilter=e.target.value;initialProjectStatus='';selectedProjectKey=null;render()});
- let bview=$('#bug-view-filter');if(bview)bview.addEventListener('change',e=>{bugListView=e.target.value;initialBugStatus='';render()});
+ let bview=$('#bug-view-filter');if(bview)bview.addEventListener('change',e=>{bugListView=e.target.value==='completed'?'completed':'active';initialBugStatus='';render()});
  let bs=$('#bug-search');if(bs)bs.addEventListener('input',filterBugs);
- let bf=$('#bug-filter');if(bf)bf.addEventListener('change',filterBugs);
- for(const id of ['bug-priority-filter','bug-project-filter']){const el=$('#'+id);if(el)el.addEventListener('change',filterBugs)}
+ 
+ let bp=$('#bug-project-filter');if(bp)bp.addEventListener('change',e=>{bugProjectStage=e.target.value==='completed'?'completed':'active';render()});
+ let priority=$('#bug-priority-filter');if(priority)priority.addEventListener('change',filterBugs);
 }
 function openStats(action){
  selectedProjectKey=null;selectedCaseId=null;selectedBugId=null;
@@ -682,7 +693,7 @@ document.addEventListener('keydown',event=>{
 document.addEventListener('click',e=>{
  const queue=e.target.closest('[data-qa-queue]');
  if(queue){
-  if(queue.dataset.qaQueue==='retest'){page='bugs';bugListView='active';selectedBugId=null;render();const filter=$('#bug-filter');if(filter){filter.value='Resolved';filterBugs()}return}
+  if(queue.dataset.qaQueue==='retest'){page='bugs';bugProjectStage='active';bugListView='active';initialBugStatus='Resolved';selectedBugId=null;render();return}
   const wanted=queue.dataset.qaQueue==='failed'?'Fail':'Not Run';
   const target=data.runs.find(r=>(!analyticsProject||r.project===analyticsProject)&&Array.isArray(r.results)&&r.results.some(x=>x.result===wanted));
   page='runs';selectedRunId=target?.id||null;render();if(!target)toast('조건에 맞는 Test Run이 없습니다.');return;
@@ -761,8 +772,8 @@ document.addEventListener('change',e=>{
 });
 function filterCases(){let q=$('#case-search').value.toLowerCase(),s=$('#case-filter').value,project=$('#case-project-filter').value;$('#case-rows').innerHTML=caseRows(data.cases.filter(c=>(c.id+c.title+c.suite+projectLabel(c.project)).toLowerCase().includes(q)&&(!s||latestCaseResult(c)===s)&&matchesProjectStage(c.project,project)))}
 function filterBugs(){
- const q=$('#bug-search').value.trim().toLocaleLowerCase(),status=$('#bug-filter').value,priority=$('#bug-priority-filter').value,project=$('#bug-project-filter').value;
- const filtered=bugVisibilityRows().filter(b=>[b.id,b.title,b.project,projectLabel(b.project),b.description||'',b.steps||'',b.owner].some(v=>String(v).toLocaleLowerCase().includes(q))&&(!status||(status==='active'?['Open','In Progress'].includes(b.status):b.status===status))&&(!priority||b.priority===priority)&&matchesProjectStage(b.project,project));
+ const q=$('#bug-search').value.trim().toLocaleLowerCase(),priority=$('#bug-priority-filter').value,project=bugProjectStage;
+ const filtered=bugVisibilityRows().filter(b=>[b.id,b.title,b.project,projectLabel(b.project),b.description||'',b.steps||'',b.owner].some(v=>String(v).toLocaleLowerCase().includes(q))&&(!priority||b.priority===priority)&&matchesProjectStage(b.project,project));
  $('#bug-rows').innerHTML=bugRows(filtered);$('#bug-result-count').textContent=filtered.length+' bugs';
 }
 
