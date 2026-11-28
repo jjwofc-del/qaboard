@@ -1,0 +1,30 @@
+const fs=require('fs'),vm=require('vm'),assert=require('node:assert/strict'),path=require('path');
+const source=fs.readFileSync(path.join(__dirname,'src/app.js'),'utf8');
+const index=fs.readFileSync(path.join(__dirname,'index.html'),'utf8');
+assert.match(index,/app\.js\?v=122/);
+assert.match(source,/개발 작업 요청서 만들기/);
+assert.doesNotMatch(source,/GPT 개발 요청서/);
+assert.match(source,/data-action="tc-delete-group"/);
+assert.match(source,/data-action="tc-confirm-delete"/);
+assert.match(source,/data-action="tc-add-detail"[^\n]*Add Test Case/);
+assert.match(source,/data-action="tc-new"[^\n]*Add Test Suite/);
+const hubFn=source.match(/function tcHub\(\)\{[\s\S]*?\n\}/)[0];assert.doesNotMatch(hubFn,/open-dev-handoff/);
+const saved={projects:[{key:'A',name:'Active Shop',status:'Active'},{key:'B',name:'Completed Shop',status:'Completed'}],cases:[{id:'TC-1',title:'Legacy case',project:'A',suite:'Checkout',steps:'1',expected:'OK'},{id:'TC-2',title:'Suite case',project:'A',suite:'Login',collectionId:'TCG-001',steps:'1',expected:'OK'}],tcCollections:[{id:'TCG-001',name:'Login Suite',project:'A',suite:'Login',priority:'High'}],runs:[{id:'RUN-1',project:'A',results:[{caseId:'TC-1',result:'Fail'},{caseId:'TC-2',result:'Pass'}]}],bugs:[]};
+const ctx={localStorage:{getItem:()=>JSON.stringify(saved),setItem:(key,value)=>{ctx.saved=JSON.parse(value)}},document:{addEventListener:()=>{},querySelector:()=>null,querySelectorAll:()=>[],body:{classList:{toggle:()=>{}}}},console,Date,JSON,setTimeout:()=>{},window:{}};
+vm.createContext(ctx);vm.runInContext(source.split("document.addEventListener('click',event=>")[0],ctx);
+const run=code=>vm.runInContext(code,ctx);
+assert.match(run('tcHub()'),/Test Suite/);assert.doesNotMatch(run('tcHub()'),/open-dev-handoff/);
+run("selectedTcCollectionId='legacy:A'");assert.match(run('tcCollectionDetail()'),/Test Suite 이름 \/ 정보 수정/);assert.match(run('tcCollectionDetail()'),/Test Suite 삭제/);
+run('selectedTcCollectionEdit=true');assert.match(run('tcCollectionForm()'),/Legacy case|기존 TC/);
+assert.equal(run("tcCasesInGroup(tcGroupInfo('legacy:A')).length"),1);
+assert.equal(run("tcCasesInGroup(tcGroupInfo('TCG-001')).length"),1);
+// Legacy group migration keeps case and run records, only changes collectionId.
+run("const legacy=tcGroupInfo('legacy:A');const created={id:nextTcGroupId(),name:'Converted',project:legacy.project};tcCasesInGroup(legacy).forEach(c=>c.collectionId=created.id);tcCollections().push(created)");
+assert.equal(run("tcGroupById('TCG-002').name"),'Converted');
+assert.equal(run("tcCasesInGroup(tcGroupById('TCG-002')).length"),1);
+assert.equal(run("data.runs[0].results[0].caseId"),'TC-1');
+// Suite deletion protection: only group is removed; cases return to legacy listing.
+run("tcCasesInGroup(tcGroupById('TCG-002')).forEach(c=>delete c.collectionId);data.tcCollections=tcCollections().filter(g=>g.id!=='TCG-002')");
+assert.equal(run("tcCasesInGroup(tcGroupInfo('legacy:A')).length"),1);
+assert.equal(run('data.cases.length'),2);assert.equal(run('data.runs.length'),1);
+console.log('PASS v1.2.2 naming, placement, old/new suite actions, migration and non-destructive deletion checks');

@@ -195,3 +195,7 @@ button:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-vis
 .guide-example{border-left:3px solid #51a27a;background:#f5faf7;border-radius:0 9px 9px 0;padding:15px 18px;margin:15px 0}.guide-example strong{color:#225a3c;font-size:13px}.guide-example p{margin:5px 0;font-size:12px}
 .guide-status-flow{display:flex;flex-wrap:wrap;align-items:center;gap:9px;margin:13px 0;padding:12px 14px;background:#f5faf8;border-radius:9px;color:#28724d;font-size:12px;font-weight:750}.guide-notice{padding:12px 14px;background:#fff8eb;border:1px solid #f1dfb5;border-radius:8px}.guide-footer{padding:16px 20px;border-radius:10px;background:#e9f3ee;color:#37654b;font-size:12px;line-height:1.7;margin-bottom:20px}
 @media(max-width:700px){.guide-intro{flex-direction:column;align-items:flex-start}.guide-index,.guide-section{padding:17px}.guide-section-head h2{font-size:15px}}
+
+/* v1.2.2: irreversible-looking actions are visually distinguishable */
+.tc-delete-btn{border-color:#e7b6bc!important;color:#a22b3a!important;background:#fff7f7!important}
+.tc-delete-btn:hover{background:#ffe9eb!important}
