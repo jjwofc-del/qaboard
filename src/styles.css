@@ -168,3 +168,11 @@ button:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-vis
 /* v1.1.6 QA workflow */
 .qa-info-note{padding:12px;border:1px solid #dce7ee;border-radius:8px;font-size:12px;color:#405c6b;background:#f2f8fc;margin:12px 0}
 .qa-work-queue{margin-top:16px}.qa-queue-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.qa-queue-item{font:inherit;border:1px solid #e0eae4;background:#f8fbf9;border-radius:9px;padding:15px;text-align:left;cursor:pointer;display:flex;flex-direction:column;gap:7px}.qa-queue-item strong{font-size:23px;color:#187c61}.qa-queue-item span{font-size:12px;font-weight:700;color:#2b473d}.qa-queue-item small{font-size:10px;color:#79928a}.qa-queue-item:hover,.qa-queue-item:focus-visible{outline:2px solid #68bb9c;outline-offset:1px}@media(max-width:700px){.qa-queue-grid{grid-template-columns:1fr}}
+
+/* v1.1.8: contextual back action in the top-right header */
+.top-back-button{border:1px solid #d9e7df;background:#f3faf6;color:#216f55;border-radius:8px;padding:8px 12px;font:600 12px system-ui,-apple-system,'Segoe UI','Malgun Gothic',sans-serif;cursor:pointer;white-space:nowrap}
+.top-back-button:hover,.top-back-button:focus-visible{background:#e2f3e9;outline:2px solid #86c9ab;outline-offset:1px}
+.tc-mode .top-back-button{color:#356ca6;background:#eef6ff;border-color:#d5e8fa}
+.tc-mode .top-back-button:hover,.tc-mode .top-back-button:focus-visible{background:#dceefe;outline-color:#80acd6}
+.top-back-button[hidden]{display:none!important}
+@media(max-width:620px){.top-back-button{font-size:11px;padding:7px 9px}.top-actions{gap:7px}}

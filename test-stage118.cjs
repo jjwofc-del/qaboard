@@ -1,0 +1,18 @@
+const assert=require('node:assert/strict'),fs=require('fs'),vm=require('vm');
+const source=fs.readFileSync(__dirname+'/src/app.js','utf8');
+const nodes={'#top-back-button':{hidden:true,disabled:true},'#modal-root':{replaceChildren(){}}};
+const ctx={localStorage:{getItem:()=>null,setItem:()=>{}},document:{querySelector:q=>nodes[q]||null,querySelectorAll:()=>[],body:{classList:{toggle(){}}},addEventListener(){}},console,JSON,Date,setTimeout(){}};
+vm.createContext(ctx);
+vm.runInContext(source.split("document.addEventListener('click',event=>")[0],ctx);
+const run=s=>vm.runInContext(s,ctx);
+run('render=()=>trackNavigation()');
+run('render()');assert.equal(run('navigationStack.length'),0);assert.equal(nodes['#top-back-button'].hidden,true);
+run("page='projects';selectedProjectKey='SHOP';render()");assert.equal(run('navigationStack.length'),1);assert.equal(nodes['#top-back-button'].hidden,false);
+run("workspaceMode='tc';page='tc-hub';selectedProjectKey=null;tcHubFocusedProject='SHOP';render()");assert.equal(run('navigationStack.length'),2);
+run("selectedTcCollectionId='SUITE-1';page='tc-collection';render()");assert.equal(run('navigationStack.length'),3);
+run('navigateBack()');assert.equal(run('page'),'tc-hub');assert.equal(run('tcHubFocusedProject'),'SHOP');assert.equal(run('workspaceMode'),'tc');
+run('navigateBack()');assert.equal(run('page'),'projects');assert.equal(run('selectedProjectKey'),'SHOP');assert.equal(run('workspaceMode'),'demo');
+run('navigateBack()');assert.equal(run('page'),'dashboard');assert.equal(run('navigationStack.length'),0);assert.equal(nodes['#top-back-button'].hidden,true);
+assert.match(fs.readFileSync(__dirname+'/index.html','utf8'),/id="top-back-button"/);
+assert.match(fs.readFileSync(__dirname+'/src/styles.css','utf8'),/\.top-back-button\[hidden\]/);
+console.log('PASS v1.1.8: navigation chain, cross-workspace restore, back button visibility, CSS, HTML');

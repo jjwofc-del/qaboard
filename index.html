@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="description" content="QABoard - QA test and bug management demo" />
   <title>QABoard · QA Workspace</title>
-  <link rel="stylesheet" href="src/styles.css?v=117" />
+  <link rel="stylesheet" href="src/styles.css?v=118" />
 </head>
 <body>
   <div class="app-shell">
@@ -35,7 +35,7 @@
       <div class="sidebar-bottom"><div class="demo-card"><div class="demo-icon">✦</div><strong>Demo environment</strong><p>실제 개인정보를 입력하지 마세요. 입력 내용은 이 브라우저에 저장됩니다.</p><span class="demo-pill">SAMPLE DATA ONLY</span></div><div class="profile"><div class="avatar">QA</div><div><strong>QA Tester 01</strong><small>Demo account</small></div><span class="more">···</span></div></div>
     </aside>
     <main class="main">
-      <header class="topbar"><div class="breadcrumb">Workspace <span>/</span> <strong id="crumb">Dashboard</strong></div><div class="top-actions"><span class="demo-tag"><i></i> Demo mode</span><button class="icon-button" aria-label="알림">♧</button><div class="avatar small">QA</div></div></header>
+      <header class="topbar"><div class="breadcrumb">Workspace <span>/</span> <strong id="crumb">Dashboard</strong></div><div class="top-actions"><button type="button" id="top-back-button" class="top-back-button" aria-label="이전화면으로 돌아가기" title="직전 화면으로 돌아가기" hidden>← 이전화면</button><span class="demo-tag"><i></i> Demo mode</span><button class="icon-button" aria-label="알림">♧</button><div class="avatar small">QA</div></div></header>
       <section class="page-wrap">
         <div id="page-content"></div>
       </section>
@@ -44,6 +44,6 @@
   <input type="file" id="backup-file" accept=".json,application/json" hidden aria-label="QABoard 백업 파일 선택" />
   <div id="modal-root"></div>
   <div id="toast" class="toast" role="status"></div>
-  <script src="src/app.js?v=117"></script>
+  <script src="src/app.js?v=118"></script>
 </body>
 </html>

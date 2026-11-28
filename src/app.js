@@ -529,6 +529,7 @@ function resetConfirm(){
  $('#modal-root').innerHTML=`<div class="modal-backdrop"><div class="modal" role="dialog" aria-modal="true" aria-label="데모 초기화 확인"><h2>정말 초기화할까요?</h2><p>모든 프로젝트, 테스트 케이스, 실행 결과 및 버그가 최초 샘플 데이터로 바뀝니다. 먼저 JSON 백업을 내려받는 것을 권장합니다.</p><div class="modal-actions"><button class="btn" data-action="close-modal">취소</button><button class="btn danger-outline" data-action="confirm-reset">모든 데이터 초기화</button></div></div></div>`;
 }
 function resetDemo(){
+ navigationStack.length=0;lastRenderedNavigation=null;
  try{localStorage.removeItem('qaboard-demo');}catch(_e){toast('브라우저 저장 데이터에 접근할 수 없습니다.');return}
  data=JSON.parse(JSON.stringify(seed));localDataWarning=false;page='dashboard';selectedProjectKey=null;selectedCaseId=null;selectedRunId=null;selectedBugId=null;analyticsProject='';analyticsDrillProject='';
  $('#modal-root').replaceChildren();render();toast('최초 데모 데이터로 초기화했습니다.');
@@ -537,12 +538,54 @@ function updateNavigationCounts(){
  const ids=[['#nav-project-count',activeProjects().length],['#nav-run-count',data.runs.filter(r=>matchesProjectStage(r.project,'active')).length],['#nav-case-count',data.cases.filter(c=>matchesProjectStage(c.project,'active')).length],['#nav-bug-count',data.bugs.filter(b=>matchesProjectStage(b.project,'active')&&b.status!=='Closed').length]];
  for(const [id,n] of ids){const node=$(id);if(node)node.textContent=String(n)}
 }
+// In-app navigation history preserves the previous page, selected detail and workspace.
+// Snapshots remain in memory only; they never affect QA records or browser storage.
+const navigationFields=['page','workspaceMode','selectedProjectKey','selectedCaseId','selectedRunId','selectedBugId','selectedTcCollectionId','selectedTcCollectionEdit','selectedHubEditCaseId','selectedWorkshopDraftId','tcHubFocusedProject','tcHubProject','tcHubQuery','projectListFilter','runProjectView','bugListView','analyticsProject','analyticsDrillProject','initialCaseStatus','initialBugStatus','initialProjectStatus'];
+const navigationStack=[];
+let lastRenderedNavigation=null;
+let restoringNavigation=false;
+function navigationSnapshot(){return Object.fromEntries(navigationFields.map(name=>[name,({page,workspaceMode,selectedProjectKey,selectedCaseId,selectedRunId,selectedBugId,selectedTcCollectionId,selectedTcCollectionEdit,selectedHubEditCaseId,selectedWorkshopDraftId,tcHubFocusedProject,tcHubProject,tcHubQuery,projectListFilter,runProjectView,bugListView,analyticsProject,analyticsDrillProject,initialCaseStatus,initialBugStatus,initialProjectStatus})[name]]))}
+function navigationIdentity(state){return JSON.stringify([state.workspaceMode,state.page,state.selectedProjectKey,state.selectedCaseId,state.selectedRunId,state.selectedBugId,state.selectedTcCollectionId,state.selectedTcCollectionEdit,state.selectedHubEditCaseId,state.selectedWorkshopDraftId,state.tcHubFocusedProject])}
+function trackNavigation(){
+ const next=navigationSnapshot();
+ if(lastRenderedNavigation&&!restoringNavigation&&navigationIdentity(next)!==navigationIdentity(lastRenderedNavigation)){
+  navigationStack.push(lastRenderedNavigation);
+  if(navigationStack.length>40)navigationStack.shift();
+ }
+ lastRenderedNavigation=next;
+ restoringNavigation=false;
+ const back=document.querySelector('#top-back-button');
+ if(back){back.hidden=navigationStack.length===0;back.disabled=navigationStack.length===0}
+}
+function navigateBack(){
+ if(!navigationStack.length)return;
+ const previous=navigationStack.pop();
+ for(const [name,value] of Object.entries(previous)){
+  switch(name){
+   case 'page':page=value;break;case 'workspaceMode':workspaceMode=value;break;
+   case 'selectedProjectKey':selectedProjectKey=value;break;case 'selectedCaseId':selectedCaseId=value;break;
+   case 'selectedRunId':selectedRunId=value;break;case 'selectedBugId':selectedBugId=value;break;
+   case 'selectedTcCollectionId':selectedTcCollectionId=value;break;case 'selectedTcCollectionEdit':selectedTcCollectionEdit=value;break;
+   case 'selectedHubEditCaseId':selectedHubEditCaseId=value;break;case 'selectedWorkshopDraftId':selectedWorkshopDraftId=value;break;
+   case 'tcHubFocusedProject':tcHubFocusedProject=value;break;case 'tcHubProject':tcHubProject=value;break;
+   case 'tcHubQuery':tcHubQuery=value;break;case 'projectListFilter':projectListFilter=value;break;
+   case 'runProjectView':runProjectView=value;break;case 'bugListView':bugListView=value;break;
+   case 'analyticsProject':analyticsProject=value;break;case 'analyticsDrillProject':analyticsDrillProject=value;break;
+   case 'initialCaseStatus':initialCaseStatus=value;break;case 'initialBugStatus':initialBugStatus=value;break;
+   case 'initialProjectStatus':initialProjectStatus=value;break;
+  }
+ }
+ workspaceMenuOpen=false;
+ document.querySelector('#modal-root')?.replaceChildren();
+ restoringNavigation=true;
+ render();
+}
 function render(){const pages={dashboard,projects,cases,runs,bugs,reports,settings,workshop,'tc-hub':tcHub,'tc-group-new':tcCollectionForm,'tc-collection':tcCollectionDetail};$('#demo-navigation').hidden=workspaceMode!=='demo';$('#tc-navigation').hidden=workspaceMode!=='tc';document.body?.classList?.toggle('tc-mode',workspaceMode==='tc');
  const workspaceLabel=$('#workspace-current');if(workspaceLabel)workspaceLabel.textContent=workspaceMode==='tc'?'Test Case':'Workspace';
  const workspaceTrigger=$('#workspace-trigger');const workspaceOptions=$('#workspace-options');
  if(workspaceTrigger)workspaceTrigger?.setAttribute?.('aria-expanded',String(workspaceMenuOpen));
  if(workspaceOptions)workspaceOptions.hidden=!workspaceMenuOpen;
- document.querySelectorAll('.workspace-option').forEach(opt=>opt.setAttribute('aria-selected',String(opt.dataset.workspace===workspaceMode)));$('#page-content').innerHTML=page==='projects'&&selectedProjectKey?projectDetail():page==='cases'&&selectedCaseId?caseDetail():page==='runs'&&selectedRunId?runDetail():page==='bugs'&&selectedBugId?bugDetail():pages[page]();$('#crumb').textContent=({dashboard:'Dashboard',projects:'Projects',cases:'Test Cases',runs:'Test Runs',bugs:'Bug Management',reports:'Reports',settings:'Settings & Backup',workshop:'세부 TC 작성','tc-hub':'Test Suites','tc-group-new':'Test Suite 만들기','tc-collection':'세부 TC 목록'})[page];document.querySelectorAll('.nav-item').forEach(b=>b.classList.toggle('active',b.dataset.page===page));const tcCount=$('#nav-tc-hub-count');if(tcCount)tcCount.textContent=String(allTcGroups().length);updateNavigationCounts();bindPage()}
+ document.querySelectorAll('.workspace-option').forEach(opt=>opt.setAttribute('aria-selected',String(opt.dataset.workspace===workspaceMode)));$('#page-content').innerHTML=page==='projects'&&selectedProjectKey?projectDetail():page==='cases'&&selectedCaseId?caseDetail():page==='runs'&&selectedRunId?runDetail():page==='bugs'&&selectedBugId?bugDetail():pages[page]();$('#crumb').textContent=({dashboard:'Dashboard',projects:'Projects',cases:'Test Cases',runs:'Test Runs',bugs:'Bug Management',reports:'Reports',settings:'Settings & Backup',workshop:'세부 TC 작성','tc-hub':'Test Suites','tc-group-new':'Test Suite 만들기','tc-collection':'세부 TC 목록'})[page];document.querySelectorAll('.nav-item').forEach(b=>b.classList.toggle('active',b.dataset.page===page));const tcCount=$('#nav-tc-hub-count');if(tcCount)tcCount.textContent=String(allTcGroups().length);updateNavigationCounts();bindPage();trackNavigation()}
 function toast(msg){let t=$('#toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2200)}
 function openModal(type){let cfg={
  project:{title:'새 프로젝트 만들기',desc:'가상의 QA 프로젝트를 추가합니다.',fields:[['name','프로젝트 이름','text','예: Payment Web QA'],['key','프로젝트 키','text','예: PAY'],['release','릴리즈','text','예: v1.0.0']]},
@@ -730,6 +773,7 @@ function activateWorkspace(mode){
  selectedTcCollectionId=null;selectedTcCollectionEdit=false;tcHubFocusedProject='';tcHubProject='active';
  selectedHubEditCaseId=null;selectedWorkshopDraftId=null;selectedProjectKey=null;selectedCaseId=null;selectedRunId=null;selectedBugId=null;render();
 }
+$('#top-back-button').addEventListener('click',navigateBack);
 $('#workspace-trigger').addEventListener('click',()=>{workspaceMenuOpen=!workspaceMenuOpen;$('#workspace-options').hidden=!workspaceMenuOpen;$('#workspace-trigger').setAttribute('aria-expanded',String(workspaceMenuOpen))});
 $('#workspace-options').addEventListener('click',e=>{const choice=e.target.closest('[data-workspace]');if(choice)activateWorkspace(choice.dataset.workspace)});
 document.addEventListener('click',e=>{if(workspaceMenuOpen&&!e.target.closest('#workspace-switch'))closeWorkspaceMenu()});

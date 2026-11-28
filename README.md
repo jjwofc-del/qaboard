@@ -1,3 +1,11 @@
+## v1.1.8 — 화면 이동 기록 및 오른쪽 상단 이전화면
+
+- 오른쪽 상단에 `← 이전화면` 버튼을 추가했습니다.
+- Dashboard → Project 상세 → 연결된 Test Suite 등 여러 단계의 화면 이동을 순서대로 되돌릴 수 있습니다.
+- Test Case와 Workspace 사이의 이동도 직전 화면 상태로 복원합니다.
+- 이전 화면 기록은 브라우저 탭 메모리에만 저장하며 QA 데이터/localStorage 구조는 변경하지 않습니다.
+- 첫 진입에는 이전 기록이 없으므로 버튼을 숨깁니다. 페이지 새로고침 시 방문 기록이 초기화됩니다.
+
 # QABoard v1.1.5 — Project / Test Suite navigation and status filters
 
 ## Changes
