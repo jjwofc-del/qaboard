@@ -119,14 +119,17 @@ function analyticsActivity(a){
  return entries.length?entries.map(r=>`<button type="button" class="activity activity-run-link" data-run-id="${esc(r.id)}" aria-label="${esc(r.name)} 테스트 실행 상세 보기"><span class="activity-dot">▷</span><span class="activity-run-text"><strong>${esc(r.id)} · ${esc(r.name)}</strong><small>${esc(projectLabel(r.project))} · ${esc(r.date||'날짜 미기록')} · ${esc(runState(r))}</small></span><span aria-hidden="true" class="activity-arrow">→</span></button>`).join(''):'<div class="empty-note">해당 프로젝트에 기록된 Test Run이 없습니다.</div>';
 }
 function dashboard(){
- const a=analyticsFor(analyticsProject);
- return `${heading('QUALITY OVERVIEW','QA Dashboard','등록된 데모 프로젝트의 실제 테스트 실행 결과와 버그 현황입니다.',analyticsSelector())}
- ${stats([{label:'모든 프로젝트',value:a.projects.filter(p=>p.status!=='Completed').length,icon:'◫',foot:'완료 전 프로젝트 보기',action:'project-all'},{label:'Test Runs',value:a.totalRuns,icon:'▷',foot:'테스트 실행 목록 보기',action:'dashboard-runs'},{label:'Bug Management',value:a.bugs.length,icon:'⚑',foot:'등록된 버그 보기',action:'dashboard-bugs'},{label:'Reports',value:a.passRate===null?'—':a.passRate+'%',icon:'▥',foot:'품질 리포트 · Pass rate',action:'reports'}])}
+ const a=analyticsFor('','active');
+ const covered=a.projects;
+ const unresolved=a.bugs.filter(b=>b.status!=='Closed');
+ return `${heading('QUALITY OVERVIEW','QA Dashboard','진행 중인 전체 프로젝트(Active / Review)의 QA 현황입니다. 프로젝트별 상세 분석은 Project 및 Reports에서 확인하세요.','<button type="button" class="btn primary" data-action="open-dev-handoff">☷ GPT 개발 요청서 만들기</button>')}
+ ${stats([{label:'진행 중 프로젝트',value:covered.length,icon:'◫',foot:'Project 목록에서 상세 보기',action:'project-all'},{label:'Test Runs',value:a.totalRuns,icon:'▷',foot:'진행 중 프로젝트의 실행 기록',action:'dashboard-runs'},{label:'미종결 버그',value:unresolved.length,icon:'⚑',foot:'Open / In Progress / Resolved',action:'dashboard-bugs'},{label:'전체 Pass Rate',value:a.passRate===null?'—':a.passRate+'%',icon:'▥',foot:'실제 테스트 실행 결과 기준',action:'reports'}])}
  <div class="dashboard-grid"><div class="panel"><div class="panel-head"><h3>Test execution results</h3><span>${a.runs.length} tracked runs</span></div>${breakdownBars([['Pass',a.counts.Pass,'#33956d'],['Fail',a.counts.Fail,'#d65b5b'],['Blocked',a.counts.Blocked,'#e4a64d'],['Not Run',a.counts['Not Run'],'#92a6ba']],a.runs.reduce((sum,r)=>sum+r.results.length,0))}</div><div class="panel"><div class="panel-head"><h3>Bug status</h3><span>${a.bugs.length} bugs</span></div>${breakdownBars(['Open','In Progress','Resolved','Closed'].map((st,i)=>[st,a.bugs.filter(b=>b.status===st).length,['#d65b5b','#e4a64d','#33956d','#92a6ba'][i]]),a.bugs.length)}</div></div>
- <div class="panel table-panel qa-work-queue"><div class="panel-head"><h3>QA 작업 대기열</h3><span>현재 기록 기반 · 항목 클릭 시 상세 화면 이동</span></div><div class="qa-queue-grid"><button type="button" class="qa-queue-item" data-qa-queue="retest"><strong>${a.bugs.filter(b=>b.status==='Resolved').length}</strong><span>재검증 대기 (Resolved)</span><small>버그 상세에서 QA 재검증 기록</small></button><button type="button" class="qa-queue-item" data-qa-queue="failed"><strong>${a.runs.flatMap(r=>r.results).filter(r=>r.result==='Fail').length}</strong><span>실패한 테스트 결과</span><small>Test Runs에서 상세 확인</small></button><button type="button" class="qa-queue-item" data-qa-queue="not-run"><strong>${a.runs.flatMap(r=>r.results).filter(r=>r.result==='Not Run').length}</strong><span>미실행 테스트 항목</span><small>Test Runs에서 실행 기록</small></button></div></div>
- <div class="dashboard-grid dashboard-secondary"><div class="panel"><div class="panel-head"><h3>Project coverage</h3><span>진행 중(Active) 프로젝트만 표시</span></div>${a.projects.filter(p=>p.status==='Active').map(p=>`<div class="analytics-project"><strong>${esc(p.name)}</strong><span>${linkedCasesFor(p.key)} cases · ${a.bugs.filter(b=>b.project===p.key).length} bugs</span><button class="btn" data-project-key="${esc(p.key)}">상세 보기 →</button></div>`).join('')||'<p class="empty-note">진행 중인 프로젝트가 없습니다.</p>'}</div><div class="panel"><div class="panel-head"><h3>Recent test runs</h3><span>최근 등록 기준</span></div>${analyticsActivity(a)}</div></div>
+ <div class="panel table-panel qa-work-queue"><div class="panel-head"><h3>QA 작업 대기열</h3><span>진행 중 프로젝트 · 항목 클릭 시 상세 화면 이동</span></div><div class="qa-queue-grid"><button type="button" class="qa-queue-item" data-qa-queue="retest"><strong>${a.bugs.filter(b=>b.status==='Resolved').length}</strong><span>재검증 대기 (Resolved)</span><small>버그 상세에서 QA 재검증 기록</small></button><button type="button" class="qa-queue-item" data-qa-queue="failed"><strong>${a.runs.flatMap(r=>r.results).filter(r=>r.result==='Fail').length}</strong><span>실패한 테스트 결과</span><small>Test Runs에서 상세 확인</small></button><button type="button" class="qa-queue-item" data-qa-queue="not-run"><strong>${a.runs.flatMap(r=>r.results).filter(r=>r.result==='Not Run').length}</strong><span>미실행 테스트 항목</span><small>Test Runs에서 실행 기록</small></button></div></div>
+ <div class="dashboard-grid dashboard-secondary"><div class="panel"><div class="panel-head"><h3>Project coverage</h3><span>Active / Review · 클릭하면 상세 보기</span></div>${covered.map(p=>`<button type="button" class="analytics-project coverage-project-button" data-project-key="${esc(p.key)}" aria-label="${esc(p.name)} 프로젝트 상세 보기"><strong>${esc(p.name)}</strong><span>${linkedCasesFor(p.key)} cases · ${a.bugs.filter(b=>b.project===p.key&&b.status!=='Closed').length} 미종결 bugs · 진행률 ${Number(p.progress)||0}%</span><span class="coverage-arrow">상세 보기 →</span></button>`).join('')||'<p class="empty-note">진행 중인 프로젝트가 없습니다.</p>'}</div><div class="panel"><div class="panel-head"><h3>Recent test runs</h3><span>진행 중 프로젝트 · 최근 등록 기준</span></div>${analyticsActivity(a)}</div></div>
  ${analyticsNote(a)}`;
 }
+
 function projectVisibilityRows(filter=projectListFilter){
  // Completed projects stay in data and remain accessible from the archive view.
  if(filter==='completed')return data.projects.filter(p=>p.status==='Completed');
@@ -168,7 +171,7 @@ function allTcGroups(){
 function tcHub(){
  const groups=allTcGroups().filter(g=>matchesProjectStage(g.project,tcHubProject)&&(!tcHubFocusedProject||g.project===tcHubFocusedProject)&&[g.id,g.name,g.suite,projectLabel(g.project)].join(' ').toLowerCase().includes(tcHubQuery.toLowerCase()));
  const totalCases=data.cases.length;
- return `${heading('TEST CASE WORKSPACE','Test Case 목록','Test Suite를 선택해 세부 TC를 관리하거나 새 Test Suite를 만드세요.','<button type="button" class="btn primary" data-action="tc-new">＋ Add test case</button>')}
+ return `${heading('TEST CASE WORKSPACE','Test Case 목록','Test Suite를 선택해 세부 TC를 관리하거나 새 Test Suite를 만드세요.','<div class="handoff-select-actions"><button type="button" class="btn" data-action="open-dev-handoff">☷ GPT 개발 요청서</button><button type="button" class="btn primary" data-action="tc-new">＋ Add test case</button></div>')}
  <div class="tc-hub-toolbar"><input id="tc-hub-search" class="search" placeholder="Test Suite 이름 또는 프로젝트 검색" value="${esc(tcHubQuery)}" aria-label="Test Suite 검색"/><select id="tc-hub-project" class="filter" aria-label="프로젝트 진행 상태 필터"><option value="active" ${tcHubProject==='active'?'selected':''}>진행 중인 프로젝트</option><option value="completed" ${tcHubProject==='completed'?'selected':''}>완료된 프로젝트</option></select>${tcHubFocusedProject?`<button type="button" class="btn tc-focus-clear" data-action="clear-tc-project-focus">${esc(projectLabel(tcHubFocusedProject))} · 선택 해제 ×</button>`:''}<span>${groups.length}개 Suite</span></div>
  <section class="panel tc-sheet"><div class="panel-head"><h3>Test Suite 목록</h3><span>행을 클릭하면 세부 TC 목록이 열립니다</span></div><div class="table-wrap"><table class="tc-sheet-table tc-collection-table"><thead><tr><th>Suite ID</th><th>Test Suite 이름</th><th>프로젝트</th><th>세부 분류</th><th>TC 수</th></tr></thead><tbody>${groups.length?groups.map(g=>`<tr class="tc-suite-row" tabindex="0" role="link" aria-label="${esc(g.name)} 세부 TC 열기" data-tc-group="${esc(g.id)}"><td class="case-id">${esc(g.id)}</td><td class="tc-title-cell">${esc(g.name)}</td><td>${esc(projectLabel(g.project))}</td><td>${esc(g.suite||'—')}</td><td>${tcCasesInGroup(g).length}건</td></tr>`).join(''):'<tr><td colspan="5" class="empty-note">Test Suite가 없습니다. + Add test case로 생성해 보세요.</td></tr>'}</tbody></table></div></section>
  <p class="analytics-note">기존 TC는 ‘기존 TC’ 묶음에서 계속 조회·수정할 수 있습니다. 입력 내용은 현재 브라우저에만 저장되며, 다른 방문자와 자동 공유되지는 않습니다.</p>`;
@@ -518,6 +521,54 @@ async function restoreFromFile(file){
  try{const parsed=JSON.parse(await file.text());openRestoreDialog(parsed);}
  catch(_e){toast('JSON 파일을 읽을 수 없습니다.');}
 }
+// Developer handoff: generate a structured, batched prompt from explicitly selected QA records.
+// The generated prompt is a local text export; it never sends data to a model or server.
+let handoffStage='active';
+let handoffProject='';
+function handoffRecords(){
+ const allowed=key=>matchesProjectStage(key,handoffStage)&&(!handoffProject||key===handoffProject);
+ return {cases:data.cases.filter(c=>allowed(c.project)),bugs:data.bugs.filter(b=>allowed(b.project))};
+}
+function handoffPage(){
+ const {cases,bugs}=handoffRecords();
+ const projects=data.projects.filter(p=>matchesProjectStage(p.key,handoffStage));
+ return `${heading('QA → DEVELOPMENT','GPT 개발 요청서','검증할 TC와 실제 버그를 선택해 한 번에 수정 요청 프롬프트로 내보냅니다.','<button type="button" class="btn" data-action="handoff-back">← Dashboard</button>')}
+ <div class="panel handoff-panel"><div class="panel-head"><h3>1. 작업 범위 선택</h3><span>모든 처리는 현재 브라우저에서만 진행</span></div>
+ <div class="handoff-filters"><label class="field"><span>프로젝트 구분</span><select id="handoff-stage" class="filter"><option value="active" ${handoffStage==='active'?'selected':''}>진행 중인 프로젝트</option><option value="completed" ${handoffStage==='completed'?'selected':''}>완료된 프로젝트</option></select></label><label class="field"><span>세부 프로젝트</span><select id="handoff-project" class="filter"><option value="">해당 그룹 전체</option>${projects.map(p=>`<option value="${esc(p.key)}" ${handoffProject===p.key?'selected':''}>${esc(p.name)}</option>`).join('')}</select></label></div>
+ <p class="settings-copy">TC는 테스트 조건을, Bug는 실제 결함을 전달해요. 중복된 내용은 한 요청서에서 함께 검토하도록 지시합니다. 체크한 항목만 포함됩니다.</p>
+ <div class="handoff-select-actions"><button type="button" class="btn" data-action="handoff-select-all">전체 선택</button><button type="button" class="btn" data-action="handoff-select-none">선택 해제</button><button type="button" class="btn" data-action="handoff-select-issues">Fail TC + 미종결 Bug 선택</button></div>
+ <div class="handoff-lists"><section><h4>Test Cases · ${cases.length}건</h4><div class="handoff-scroll">${cases.map(c=>`<label class="handoff-option"><input type="checkbox" class="handoff-item" data-handoff-kind="case" value="${esc(c.id)}"><span><strong>${esc(c.id)}</strong> ${esc(c.title)} <small>${esc(projectLabel(c.project))} · ${esc(latestCaseResult(c))}</small></span></label>`).join('')||'<p class="empty-note">해당하는 TC가 없습니다.</p>'}</div></section><section><h4>Bugs · ${bugs.length}건</h4><div class="handoff-scroll">${bugs.map(b=>`<label class="handoff-option"><input type="checkbox" class="handoff-item" data-handoff-kind="bug" value="${esc(b.id)}"><span><strong>${esc(b.id)}</strong> ${esc(b.title)} <small>${esc(projectLabel(b.project))} · ${esc(b.status)}</small></span></label>`).join('')||'<p class="empty-note">해당하는 Bug가 없습니다.</p>'}</div></section></div>
+ <div class="handoff-select-actions"><button type="button" class="btn primary" data-action="handoff-generate">2. 선택 항목으로 프롬프트 생성</button><span id="handoff-count" aria-live="polite">선택한 항목 0건</span></div></div>
+ <div class="panel handoff-panel"><div class="panel-head"><h3>3. 개발 요청서 확인 및 내보내기</h3><span>내용 확인 후 GPT 채팅에 첨부</span></div><p class="settings-copy">생성된 문장은 수정 가능한 초안입니다. 실제 증상·재현 환경·수정 범위가 부족하다면 내용을 보완하세요. 코드를 자동으로 고치거나 전송하지 않습니다.</p><textarea id="handoff-output" class="handoff-output" rows="14" placeholder="위에서 TC·Bug를 체크하고 프롬프트 생성 버튼을 눌러 주세요."></textarea><div class="handoff-select-actions"><button type="button" class="btn" data-action="handoff-copy">복사</button><button type="button" class="btn primary" data-action="handoff-download">Markdown(.md) 다운로드</button></div></div>`;
+}
+function handoffPrompt(selectedCases,selectedBugs){
+ const lines=['# QABoard 개발 수정 요청서','','## 프로젝트 및 개발 환경','- 서비스: QABoard (GitHub Pages, HTML/CSS/JavaScript, localStorage 저장)','- 요청 범위: 아래 QA 기록에 근거한 버그 수정 및 기능 보완','- 프로젝트: '+[...new Set([...selectedCases,...selectedBugs].map(x=>projectLabel(x.project)))].join(', '),'','## 개발자 작업 원칙','1. 첨부한 최신 QABoard 소스 ZIP을 먼저 확인하고 기존 기능/저장 데이터/화면 이동을 보존하세요.','2. 아래 재현 단계와 기대 결과를 기준으로 문제를 재현하고 원인을 찾아 최소 수정하세요.','3. 기록에 없는 실제 결과, 환경, 재현 조건을 지어내지 말고 미확인 사항으로 표시하세요.','4. 서로 연결된 TC와 Bug를 중복 작업하지 말고 관련 항목을 한 번에 처리하세요.','5. 수정 후 JavaScript 문법 검사, 관련 TC 재검증, 주요 기능 회귀 테스트를 수행하세요.','6. 완료 후 변경 내역, QA 체크리스트, GitHub 업로드 파일 목록, 최신 전체 프로젝트 ZIP을 제공하세요.','7. 개인정보·비밀번호·실제 고객 데이터는 사용하지 마세요.','','## 선택한 Test Cases'];
+ if(!selectedCases.length)lines.push('(선택된 TC 없음)');
+ for(const c of selectedCases){
+  const execution=latestCaseExecution(c.id);
+  lines.push('',`### ${c.id} — ${c.title}`,`- 프로젝트: ${projectLabel(c.project)} (${c.project||'미지정'})`,`- Suite: ${c.suite||'미기록'}`,`- 우선순위: ${c.priority||'미기록'}`,`- 사전 조건: ${c.preconditions||'미기록'}`,`- 테스트 단계: ${c.steps||'미기록'}`,`- 기대 결과: ${c.expected||'미기록'}`,`- 최신 실행 결과: ${latestCaseResult(c)}${execution?' ('+execution.run.id+')':''}`);
+  if(execution?.entry.bugId)lines.push(`- 연결된 Bug: ${execution.entry.bugId}`);
+  if(!execution)lines.push('- 확인 필요: TC 실행 기록이 없습니다. 실제 결함 여부는 아직 확정할 수 없습니다.');
+ }
+ lines.push('','## 선택한 Bugs');
+ if(!selectedBugs.length)lines.push('(선택된 Bug 없음)');
+ for(const b of selectedBugs){
+  const related=[];
+  for(const r of data.runs)if(Array.isArray(r.results))for(const entry of r.results)if(entry.bugId===b.id)related.push(`${r.id} / ${entry.caseId} / ${entry.result}`);
+  lines.push('',`### ${b.id} — ${b.title}`,`- 프로젝트: ${projectLabel(b.project)} (${b.project||'미지정'})`,`- 상태: ${b.status}`,`- 우선순위: ${b.priority||'미기록'}`,`- 현상·설명: ${b.description||'미기록 — 실제 결과를 추가해야 함'}`,`- 재현 단계: ${b.steps||'미기록 — 재현 방법을 추가해야 함'}`,`- 연결된 Test Run: ${related.join('; ')||'연결 기록 없음'}`,`- 기대 결과: 연결된 TC의 expected를 참고하고 불명확하면 확인 요청`);
+ }
+ lines.push('','## 완료 조건 및 QA 검증','- 각 선택 항목의 예상 결과가 만족될 것','- 기존 프로젝트/TC/Test Run/Bug 데이터와 이력이 손실되지 않을 것','- 수정 항목과 관련된 회귀 테스트를 작성하고 통과시킬 것','- 검증되지 않은 항목은 완료로 단정하지 말 것','',`총 ${selectedCases.length}개 TC, ${selectedBugs.length}개 Bug.`);
+ return lines.join('\n');
+}
+function handoffPicked(){
+ const selected=[...document.querySelectorAll('.handoff-item:checked')];
+ const {cases,bugs}=handoffRecords();
+ return {cases:cases.filter(c=>selected.some(x=>x.dataset.handoffKind==='case'&&x.value===c.id)),bugs:bugs.filter(b=>selected.some(x=>x.dataset.handoffKind==='bug'&&x.value===b.id))};
+}
+function handoffDownload(content){
+ const blob=new Blob([content],{type:'text/markdown;charset=utf-8'});const url=URL.createObjectURL(blob);
+ const a=document.createElement('a');a.href=url;a.download='qaboard-gpt-development-request-'+new Date().toISOString().slice(0,10)+'.md';document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
+}
 function settings(){
  const counts=[data.projects.length,data.cases.length,data.runs.length,data.bugs.length];
  return `${heading('DEMO DATA & PRIVACY','Settings & Backup','내 브라우저의 데모 데이터를 관리하고 안전하게 내보내거나 복원합니다.')}
@@ -588,12 +639,12 @@ function navigateBack(){
  restoringNavigation=true;
  render();
 }
-function render(){const pages={dashboard,projects,cases,runs,bugs,reports,settings,workshop,'tc-hub':tcHub,'tc-group-new':tcCollectionForm,'tc-collection':tcCollectionDetail};$('#demo-navigation').hidden=workspaceMode!=='demo';$('#tc-navigation').hidden=workspaceMode!=='tc';document.body?.classList?.toggle('tc-mode',workspaceMode==='tc');
+function render(){const pages={dashboard,projects,cases,runs,bugs,reports,settings,workshop,'dev-handoff':handoffPage,'tc-hub':tcHub,'tc-group-new':tcCollectionForm,'tc-collection':tcCollectionDetail};$('#demo-navigation').hidden=workspaceMode!=='demo';$('#tc-navigation').hidden=workspaceMode!=='tc';document.body?.classList?.toggle('tc-mode',workspaceMode==='tc');
  const workspaceLabel=$('#workspace-current');if(workspaceLabel)workspaceLabel.textContent=workspaceMode==='tc'?'Test Case':'Workspace';
  const workspaceTrigger=$('#workspace-trigger');const workspaceOptions=$('#workspace-options');
  if(workspaceTrigger)workspaceTrigger?.setAttribute?.('aria-expanded',String(workspaceMenuOpen));
  if(workspaceOptions)workspaceOptions.hidden=!workspaceMenuOpen;
- document.querySelectorAll('.workspace-option').forEach(opt=>opt.setAttribute('aria-selected',String(opt.dataset.workspace===workspaceMode)));$('#page-content').innerHTML=page==='projects'&&selectedProjectKey?projectDetail():page==='cases'&&selectedCaseId?caseDetail():page==='runs'&&selectedRunId?runDetail():page==='bugs'&&selectedBugId?bugDetail():pages[page]();$('#crumb').textContent=({dashboard:'Dashboard',projects:'Projects',cases:'Test Cases',runs:'Test Runs',bugs:'Bug Management',reports:'Reports',settings:'Settings & Backup',workshop:'세부 TC 작성','tc-hub':'Test Suites','tc-group-new':'Test Suite 만들기','tc-collection':'세부 TC 목록'})[page];document.querySelectorAll('.nav-item').forEach(b=>b.classList.toggle('active',b.dataset.page===page));const tcCount=$('#nav-tc-hub-count');if(tcCount)tcCount.textContent=String(allTcGroups().length);updateNavigationCounts();bindPage();trackNavigation()}
+ document.querySelectorAll('.workspace-option').forEach(opt=>opt.setAttribute('aria-selected',String(opt.dataset.workspace===workspaceMode)));$('#page-content').innerHTML=page==='projects'&&selectedProjectKey?projectDetail():page==='cases'&&selectedCaseId?caseDetail():page==='runs'&&selectedRunId?runDetail():page==='bugs'&&selectedBugId?bugDetail():pages[page]();$('#crumb').textContent=({dashboard:'Dashboard',projects:'Projects',cases:'Test Cases',runs:'Test Runs',bugs:'Bug Management',reports:'Reports',settings:'Settings & Backup',workshop:'세부 TC 작성','tc-hub':'Test Suites','tc-group-new':'Test Suite 만들기','tc-collection':'세부 TC 목록','dev-handoff':'GPT 개발 요청서'})[page];document.querySelectorAll('.nav-item').forEach(b=>b.classList.toggle('active',b.dataset.page===page));const tcCount=$('#nav-tc-hub-count');if(tcCount)tcCount.textContent=String(allTcGroups().length);updateNavigationCounts();bindPage();trackNavigation()}
 function toast(msg){let t=$('#toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2200)}
 function openModal(type){let cfg={
  project:{title:'새 프로젝트 만들기',desc:'가상의 QA 프로젝트를 추가합니다.',fields:[['name','프로젝트 이름','text','예: Payment Web QA'],['key','프로젝트 키','text','예: PAY'],['release','릴리즈','text','예: v1.0.0']]},
@@ -623,6 +674,9 @@ function bindPage(){
   selectedTcCollectionEdit=false;save();page='tc-collection';render();toast('Test Suite를 저장했습니다.');
  });
  const w=$('#tc-workshop-form');if(w)w.addEventListener('submit',e=>{e.preventDefault();workshopSubmit('publish')});
+ const hs=$('#handoff-stage');if(hs)hs.addEventListener('change',e=>{handoffStage=e.target.value;handoffProject='';render()});
+ const hp=$('#handoff-project');if(hp)hp.addEventListener('change',e=>{handoffProject=e.target.value;render()});
+ document.querySelectorAll('.handoff-item').forEach(x=>x.addEventListener('change',()=>{const n=document.querySelectorAll('.handoff-item:checked').length;const count=$('#handoff-count');if(count)count.textContent='선택한 항목 '+n+'건'}));
  const hubSearch=$('#tc-hub-search');if(hubSearch)hubSearch.addEventListener('input',e=>{const pos=e.target.selectionStart;tcHubQuery=e.target.value;render();const next=$('#tc-hub-search');next?.focus();next?.setSelectionRange(pos,pos)});
  const hubFilter=$('#tc-hub-project');if(hubFilter)hubFilter.addEventListener('change',e=>{tcHubProject=e.target.value;tcHubFocusedProject='';render()});
  let cs=$('#case-search');if(cs)cs.addEventListener('input',filterCases);
@@ -695,7 +749,7 @@ document.addEventListener('click',e=>{
  if(queue){
   if(queue.dataset.qaQueue==='retest'){page='bugs';bugProjectStage='active';bugListView='active';initialBugStatus='Resolved';selectedBugId=null;render();return}
   const wanted=queue.dataset.qaQueue==='failed'?'Fail':'Not Run';
-  const target=data.runs.find(r=>(!analyticsProject||r.project===analyticsProject)&&Array.isArray(r.results)&&r.results.some(x=>x.result===wanted));
+  const target=data.runs.find(r=>matchesProjectStage(r.project,'active')&&Array.isArray(r.results)&&r.results.some(x=>x.result===wanted));
   page='runs';selectedRunId=target?.id||null;render();if(!target)toast('조건에 맞는 Test Run이 없습니다.');return;
  }
  const suiteJump=e.target.closest('[data-open-project-suites]');
@@ -726,6 +780,12 @@ document.addEventListener('click',e=>{
  if(project){selectedProjectKey=project.dataset.projectKey;page='projects';initialProjectStatus='';analyticsDrillProject='';render();return}
  const action=e.target.closest('[data-action]');
  if(action){const a=action.dataset.action;
+  if(a==='open-dev-handoff'){page='dev-handoff';workspaceMode='demo';handoffStage='active';handoffProject='';render();return}
+  if(a==='handoff-back'){page='dashboard';render();return}
+  if(a==='handoff-select-all'||a==='handoff-select-none'||a==='handoff-select-issues'){document.querySelectorAll('.handoff-item').forEach(input=>{if(a==='handoff-select-issues'){const item=input.dataset.handoffKind==='case'?data.cases.find(c=>c.id===input.value):data.bugs.find(b=>b.id===input.value);input.checked=input.dataset.handoffKind==='case'?!!item&&latestCaseResult(item)==='Fail':!!item&&item.status!=='Closed'}else input.checked=a==='handoff-select-all'});const count=$('#handoff-count');if(count)count.textContent='선택한 항목 '+document.querySelectorAll('.handoff-item:checked').length+'건';return}
+  if(a==='handoff-generate'){const pick=handoffPicked();if(!pick.cases.length&&!pick.bugs.length){toast('TC 또는 Bug를 하나 이상 선택해 주세요.');return}if(pick.cases.length+pick.bugs.length>30){toast('한 요청서당 최대 30건까지 선택해 주세요.');return}$('#handoff-output').value=handoffPrompt(pick.cases,pick.bugs);toast('개발 요청서 초안을 생성했습니다.');return}
+  if(a==='handoff-copy'){const value=$('#handoff-output')?.value;if(!value){toast('먼저 요청서를 생성해 주세요.');return}if(navigator.clipboard?.writeText)navigator.clipboard.writeText(value).then(()=>toast('요청서를 복사했습니다.')).catch(()=>toast('복사할 수 없습니다. 텍스트를 직접 선택해 주세요.'));else{$('#handoff-output').select();document.execCommand('copy');toast('요청서를 복사했습니다.')}return}
+  if(a==='handoff-download'){const value=$('#handoff-output')?.value;if(!value){toast('먼저 요청서를 생성해 주세요.');return}handoffDownload(value);toast('개발 요청서 Markdown을 다운로드했습니다.');return}
   if(a==='close-modal'){$('#modal-root').replaceChildren();return}
   if(a==='clear-tc-project-focus'){tcHubFocusedProject='';render();return}
   if(a==='tc-new'){selectedTcCollectionId=null;selectedTcCollectionEdit=false;page='tc-group-new';render();return}

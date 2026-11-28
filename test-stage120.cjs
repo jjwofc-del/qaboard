@@ -1,0 +1,15 @@
+const fs=require('fs'),vm=require('vm'),assert=require('node:assert/strict');
+const source=fs.readFileSync(__dirname+'/src/app.js','utf8');
+const src=source.split("document.addEventListener('click',event=>")[0];
+const saved={projects:[{key:'A',name:'Active shop',status:'Active',progress:30},{key:'R',name:'Review portal',status:'Review',progress:80},{key:'C',name:'Completed app',status:'Completed',progress:100}],cases:[{id:'TC-A',title:'Add item',project:'A',suite:'Cart',steps:'Click add',expected:'Item shown',priority:'High'},{id:'TC-C',title:'Archive case',project:'C'}],runs:[{id:'RUN-A',name:'Active run',project:'A',results:[{caseId:'TC-A',result:'Fail',bugId:'BUG-A'}]},{id:'RUN-C',name:'Archived run',project:'C',results:[{caseId:'TC-C',result:'Pass'}]}],bugs:[{id:'BUG-A',title:'Cart issue',project:'A',status:'Open',description:'Nothing happens',steps:'Click add',priority:'High'},{id:'BUG-R',title:'Review issue',project:'R',status:'Resolved'},{id:'BUG-C',title:'Archive bug',project:'C',status:'Closed'}]};
+const ctx={localStorage:{getItem:()=>JSON.stringify(saved),setItem:()=>{}},document:{addEventListener:()=>{},querySelector:()=>null,querySelectorAll:()=>[],body:{classList:{toggle:()=>{}}}},console,setTimeout:()=>{},Date,JSON,FormData:class{},window:{}};
+vm.createContext(ctx);vm.runInContext(src,ctx);const run=x=>vm.runInContext(x,ctx);
+const dash=run('dashboard()');
+assert.match(dash,/QA Dashboard/);assert.doesNotMatch(dash,/id="analytics-project"/);assert.match(dash,/Active shop/);assert.match(dash,/Review portal/);assert.doesNotMatch(dash,/Completed app/);assert.match(dash,/data-project-key="A"/);assert.match(dash,/data-action="open-dev-handoff"/);
+assert.equal(run("analyticsFor('','active').totalRuns"),1);assert.equal(run("analyticsFor('','active').activeBugs"),2);
+const handoff=run('handoffPage()');assert.match(handoff,/data-handoff-kind="case"/);assert.match(handoff,/BUG-A/);assert.match(handoff,/BUG-R/);assert.doesNotMatch(handoff,/Archive case/);assert.match(run('tcHub()'),/open-dev-handoff/);
+const prompt=run('handoffPrompt([data.cases[0]],[data.bugs[0]])');
+assert.match(prompt,/TC-A/);assert.match(prompt,/BUG-A/);assert.match(prompt,/Click add/);assert.match(prompt,/Item shown/);assert.match(prompt,/RUN-A/);assert.match(prompt,/Nothing happens/);assert.match(prompt,/수정 후/);assert.ok(prompt.split('\n').length>15);
+run("handoffStage='completed'");assert.match(run('handoffPage()'),/Archive case/);assert.doesNotMatch(run('handoffPage()'),/Cart issue/);
+const index=fs.readFileSync(__dirname+'/index.html','utf8');assert.match(index,/app\.js\?v=120/);assert.match(index,/styles\.css\?v=120/);
+console.log('PASS v1.2.0: dashboard active and review aggregation, no filter, drilldown, handoff TC+Bug contents, stage filters, TC link and cache keys');

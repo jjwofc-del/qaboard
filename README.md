@@ -100,3 +100,12 @@ See `CHANGELOG-v1.1.6.md` for Test Run-derived results, QA retest workflow, Dash
 - Resolved는 QA 재검증이 필요하므로 미종결 버그로 표시합니다.
 - Reports: 진행 중/완료 프로젝트 구분 후 각 그룹 전체 또는 개별 프로젝트를 선택해 실행/버그 통계를 확인하고 CSV로 출력할 수 있습니다.
 - 기존 qaboard-demo 데이터 및 v1.1.8 이전화면 기록 기능 유지.
+
+
+## v1.2.0: 전체 Dashboard + GPT 개발 요청서
+- Dashboard는 진행 중인 프로젝트(Active / Review) 전체의 테스트·버그 통계만 집계합니다. 프로젝트 선택 드롭다운을 제거했습니다.
+- Project coverage는 프로젝트별 상세 화면으로 연결되며, 최근 Test Runs 클릭도 유지합니다.
+- Dashboard의 **GPT 개발 요청서 만들기**에서 TC/Bug를 여러 건 선택한 뒤 Markdown 프롬프트를 생성·수정·복사·다운로드할 수 있습니다.
+- 요청서는 실제 ChatGPT에 자동으로 제출되지 않습니다. 최신 QABoard ZIP과 함께 전달해야 개발자가 올바른 소스를 고칠 수 있습니다.
+- 프롬프트는 입력 기록만 이용하며 누락된 재현 환경과 실제 증상은 임의로 생성하지 않습니다. 1회 최대 30건을 선택할 수 있습니다.
+- 보안: 실계정·고객정보·비밀키가 TC나 버그에 들어있다면 요청서에 포함하기 전에 삭제하세요.
