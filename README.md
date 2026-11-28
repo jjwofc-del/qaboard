@@ -46,3 +46,11 @@ GitHub Pages에서 바로 배포할 수 있는 정적 웹앱입니다.
 - Projects, Test Cases, Test Runs, Bugs, 세부 TC 목록에서 행을 클릭하면 상세 화면 열기.
 - 목록 행의 버튼/드롭다운은 기존 동작을 유지하며 키보드 Enter/Space로도 상세 페이지 열기.
 - 저장 데이터 구조를 바꾸지 않아 기존 localStorage 데이터 유지.
+
+## v1.1.4 업데이트
+- Dashboard의 Project coverage는 Active 프로젝트만 표시합니다.
+- Recent test runs는 행을 클릭하여 Test Run 상세로 이동합니다.
+- Workspace의 모든 프로젝트 메뉴를 Project로 변경했습니다.
+- Bug Management는 진행 중(Open/In Progress)과 완료(Resolved/Closed) 목록을 분리하며 완료된 버그는 별도 선택으로 조회합니다. 삭제하지 않습니다.
+- Bug list와 Test Runs에는 프로젝트 이름 및 프로젝트 키를 함께 표시합니다.
+- 기존 브라우저 localStorage 키(`qaboard-demo`)는 변경하지 않았습니다.

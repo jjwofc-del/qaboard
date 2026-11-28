@@ -45,6 +45,7 @@ let selectedRunId=null;
 let selectedBugId=null;
 let initialCaseStatus='';
 let initialBugStatus='';
+let bugListView='active';
 let initialProjectStatus='';
 let projectListFilter='all';
 let selectedWorkshopDraftId=null;
@@ -94,14 +95,14 @@ function analyticsNote(a){return `<p class="analytics-note">실행 결과는 새
 function breakdownBars(items,total){return items.map(([name,n,color])=>`<div class="analytics-line"><div class="analytics-line-label"><strong>${esc(name)}</strong><span>${n}건</span></div><div class="progress-track"><div class="analytics-fill" style="width:${total?n/total*100:0}%;background:${color}"></div></div></div>`).join('')}
 function analyticsActivity(a){
  const entries=a.runs.slice(0,5);
- return entries.length?entries.map(r=>`<div class="activity"><div class="activity-dot">▷</div><div><strong>${esc(r.id)} · ${esc(r.name)}</strong><small>${esc(projectLabel(r.project))} · ${esc(r.date||'날짜 미기록')} · ${esc(runState(r))}</small></div></div>`).join(''):'<div class="empty-note">해당 프로젝트에 기록된 Test Run이 없습니다.</div>';
+ return entries.length?entries.map(r=>`<button type="button" class="activity activity-run-link" data-run-id="${esc(r.id)}" aria-label="${esc(r.name)} 테스트 실행 상세 보기"><span class="activity-dot">▷</span><span class="activity-run-text"><strong>${esc(r.id)} · ${esc(r.name)}</strong><small>${esc(projectLabel(r.project))} · ${esc(r.date||'날짜 미기록')} · ${esc(runState(r))}</small></span><span aria-hidden="true" class="activity-arrow">→</span></button>`).join(''):'<div class="empty-note">해당 프로젝트에 기록된 Test Run이 없습니다.</div>';
 }
 function dashboard(){
  const a=analyticsFor(analyticsProject);
  return `${heading('QUALITY OVERVIEW','QA Dashboard','등록된 데모 프로젝트의 실제 테스트 실행 결과와 버그 현황입니다.',analyticsSelector())}
  ${stats([{label:'모든 프로젝트',value:a.projects.filter(p=>p.status!=='Completed').length,icon:'◫',foot:'완료 전 프로젝트 보기',action:'project-all'},{label:'Test Runs',value:a.totalRuns,icon:'▷',foot:'테스트 실행 목록 보기',action:'dashboard-runs'},{label:'Bug Management',value:a.bugs.length,icon:'⚑',foot:'등록된 버그 보기',action:'dashboard-bugs'},{label:'Reports',value:a.passRate===null?'—':a.passRate+'%',icon:'▥',foot:'품질 리포트 · Pass rate',action:'reports'}])}
  <div class="dashboard-grid"><div class="panel"><div class="panel-head"><h3>Test execution results</h3><span>${a.runs.length} tracked runs</span></div>${breakdownBars([['Pass',a.counts.Pass,'#33956d'],['Fail',a.counts.Fail,'#d65b5b'],['Blocked',a.counts.Blocked,'#e4a64d'],['Not Run',a.counts['Not Run'],'#92a6ba']],a.runs.reduce((sum,r)=>sum+r.results.length,0))}</div><div class="panel"><div class="panel-head"><h3>Bug status</h3><span>${a.bugs.length} bugs</span></div>${breakdownBars(['Open','In Progress','Resolved','Closed'].map((st,i)=>[st,a.bugs.filter(b=>b.status===st).length,['#d65b5b','#e4a64d','#33956d','#92a6ba'][i]]),a.bugs.length)}</div></div>
- <div class="dashboard-grid dashboard-secondary"><div class="panel"><div class="panel-head"><h3>Project coverage</h3><span>Cases linked to projects</span></div>${a.projects.map(p=>`<div class="analytics-project"><strong>${esc(p.name)}</strong><span>${linkedCasesFor(p.key)} cases · ${a.bugs.filter(b=>b.project===p.key).length} bugs</span><button class="btn" data-project-key="${esc(p.key)}">상세 보기 →</button></div>`).join('')||'<p class="empty-note">프로젝트가 없습니다.</p>'}</div><div class="panel"><div class="panel-head"><h3>Recent test runs</h3><span>최근 등록 기준</span></div>${analyticsActivity(a)}</div></div>
+ <div class="dashboard-grid dashboard-secondary"><div class="panel"><div class="panel-head"><h3>Project coverage</h3><span>진행 중(Active) 프로젝트만 표시</span></div>${a.projects.filter(p=>p.status==='Active').map(p=>`<div class="analytics-project"><strong>${esc(p.name)}</strong><span>${linkedCasesFor(p.key)} cases · ${a.bugs.filter(b=>b.project===p.key).length} bugs</span><button class="btn" data-project-key="${esc(p.key)}">상세 보기 →</button></div>`).join('')||'<p class="empty-note">진행 중인 프로젝트가 없습니다.</p>'}</div><div class="panel"><div class="panel-head"><h3>Recent test runs</h3><span>최근 등록 기준</span></div>${analyticsActivity(a)}</div></div>
  ${analyticsNote(a)}`;
 }
 function projectVisibilityRows(filter=projectListFilter){
@@ -306,7 +307,7 @@ const outcomePill=run=>{
 };
 function runs(){return `${heading('TEST MANAGEMENT','Test Runs','프로젝트별 테스트 실행을 생성하고 각 케이스의 결과를 기록합니다.','<button class="btn primary" data-action="new-run">＋ Create test run</button>')}
  ${stats([{label:'Total runs',value:data.runs.length,icon:'▷',foot:'등록된 테스트 실행'},{label:'Completed',value:data.runs.filter(r=>runState(r)==='Completed').length,icon:'✓',foot:'완료된 실행'},{label:'Passed checks',value:data.runs.reduce((a,r)=>a+runCounts(r).passed,0),icon:'◉',foot:'누적 통과 건수'},{label:'Failed checks',value:data.runs.reduce((a,r)=>a+runCounts(r).failed,0),icon:'!',foot:'누적 실패 건수'}])}
- <div class="panel"><p class="muted" style="padding:0 16px;font-size:11px">QA RESULT는 케이스 결과 요약(Pass / Fail / Blocked / Partial / Not Run), RUN STATUS는 실행 진행 상태(In Progress / Completed)입니다. 이전 샘플 실행은 Sample로 표시합니다.</p><div class="table-wrap"><table><thead><tr><th>RUN ID</th><th>TEST RUN</th><th>PROJECT</th><th>DATE</th><th>PASS / FAIL / BLOCKED</th><th>QA RESULT</th><th>RUN STATUS</th><th>DETAILS</th></tr></thead><tbody>${data.runs.map(r=>{const n=runCounts(r);return `<tr class="detail-click-row" tabindex="0" role="link" aria-label="${esc(r.id)} 테스트 실행 상세 보기" data-row-detail="run" data-row-id="${esc(r.id)}"><td class="case-id">${esc(r.id)}</td><td class="project-name">${esc(r.name)}</td><td>${esc(r.project)}</td><td>${esc(r.date)}</td><td><span class="positive">${n.passed}</span> / <span style="color:#c85c5c">${n.failed}</span> / ${n.blocked}</td><td>${outcomePill(r)}</td><td>${pill(runState(r))}</td><td><button class="btn" data-run-id="${esc(r.id)}">상세 보기 →</button></td></tr>`}).join('')}</tbody></table></div></div>`}
+ <div class="panel"><p class="muted" style="padding:0 16px;font-size:11px">QA RESULT는 케이스 결과 요약(Pass / Fail / Blocked / Partial / Not Run), RUN STATUS는 실행 진행 상태(In Progress / Completed)입니다. 이전 샘플 실행은 Sample로 표시합니다.</p><div class="table-wrap"><table><thead><tr><th>RUN ID</th><th>TEST RUN</th><th>PROJECT</th><th>DATE</th><th>PASS / FAIL / BLOCKED</th><th>QA RESULT</th><th>RUN STATUS</th><th>DETAILS</th></tr></thead><tbody>${data.runs.map(r=>{const n=runCounts(r);return `<tr class="detail-click-row" tabindex="0" role="link" aria-label="${esc(r.id)} 테스트 실행 상세 보기" data-row-detail="run" data-row-id="${esc(r.id)}"><td class="case-id">${esc(r.id)}</td><td class="project-name">${esc(r.name)}</td><td><strong>${esc(projectLabel(r.project))}</strong><div class="muted">${esc(r.project)}</div></td><td>${esc(r.date)}</td><td><span class="positive">${n.passed}</span> / <span style="color:#c85c5c">${n.failed}</span> / ${n.blocked}</td><td>${outcomePill(r)}</td><td>${pill(runState(r))}</td><td><button class="btn" data-run-id="${esc(r.id)}">상세 보기 →</button></td></tr>`}).join('')}</tbody></table></div></div>`}
 function runDetail(){
  const run=data.runs.find(r=>r.id===selectedRunId);
  if(!run){selectedRunId=null;return runs()}
@@ -362,17 +363,25 @@ function openDeleteBug(){
  const n=bugLinks(b.id).length;
  $('#modal-root').innerHTML=`<div class="modal-backdrop"><div class="modal" role="dialog" aria-modal="true" aria-labelledby="delete-bug-title"><h2 id="delete-bug-title">버그 삭제 · ${esc(b.id)}</h2><p>정말 삭제할까요? 삭제된 버그는 복구할 수 없습니다. 연결된 ${n}개 테스트 결과의 버그 연결도 해제되지만 테스트 결과 자체는 유지됩니다.</p><div class="modal-actions"><button type="button" class="btn" data-action="close-modal">취소</button><button type="button" class="btn danger" data-confirm-delete-bug="${esc(b.id)}">버그 삭제 확인</button></div></div></div>`;
 }
+function bugVisibilityRows(view=bugListView){
+ if(view==='completed')return data.bugs.filter(b=>['Resolved','Closed'].includes(b.status));
+ if(view==='all')return data.bugs;
+ return data.bugs.filter(b=>['Open','In Progress'].includes(b.status));
+}
 function bugs(){
- const active=data.bugs.filter(b=>['Open','In Progress'].includes(b.status)).length;
- return `${heading('ISSUE TRACKING','Bug Management','버그 등록, 수정, 상태 추적 및 실패 테스트 연결을 관리합니다.','<button class="btn primary" data-action="new-bug">＋ Create bug</button>')}
- ${stats([{label:'Total bugs',value:data.bugs.length,icon:'⚑',foot:'등록된 버그'},{label:'Open / In Progress',value:active,icon:'◷',foot:'조치가 필요한 버그'},{label:'Resolved / Closed',value:data.bugs.length-active,icon:'✓',foot:'처리된 버그'},{label:'Linked test results',value:data.runs.reduce((sum,r)=>sum+(Array.isArray(r.results)?r.results.filter(x=>x.bugId&&data.bugs.some(b=>b.id===x.bugId)).length:0),0),icon:'☷',foot:'Test Run에서 연결된 결과'}])}
+ const active=bugVisibilityRows('active').length,closed=bugVisibilityRows('completed').length;
+ const visible=bugVisibilityRows();
+ const filtered=visible.filter(b=>(!analyticsDrillProject||b.project===analyticsDrillProject)&&(!initialBugStatus|| (initialBugStatus==='active'?['Open','In Progress'].includes(b.status):b.status===initialBugStatus)));
+ return `${heading('ISSUE TRACKING','Bug Management','진행 중인 버그와 완료된 버그를 분리해 관리합니다.','<button class="btn primary" data-action="new-bug">＋ Create bug</button>')}
+ ${stats([{label:'Total bugs',value:data.bugs.length,icon:'⚑',foot:'등록된 버그'},{label:'Open / In Progress',value:active,icon:'◷',foot:'조치가 필요한 버그'},{label:'Resolved / Closed',value:closed,icon:'✓',foot:'처리된 버그'},{label:'Linked test results',value:data.runs.reduce((sum,r)=>sum+(Array.isArray(r.results)?r.results.filter(x=>x.bugId&&data.bugs.some(b=>b.id===x.bugId)).length:0),0),icon:'☷',foot:'Test Run에서 연결된 결과'}])}
+ <div class="project-filter-line project-archive-filter"><span>${bugListView==='completed'?'완료된 버그':bugListView==='all'?'전체 버그':'진행 중인 버그'} · ${visible.length}건</span><label class="project-view-label" for="bug-view-filter">목록 선택 <select id="bug-view-filter" class="filter" aria-label="버그 목록 선택"><option value="active" ${bugListView==='active'?'selected':''}>진행 중 · ${active}건</option><option value="completed" ${bugListView==='completed'?'selected':''}>완료된 버그 · ${closed}건</option><option value="all" ${bugListView==='all'?'selected':''}>전체 버그 · ${data.bugs.length}건</option></select></label></div>
  <div class="toolbar bug-toolbar"><input class="search" id="bug-search" aria-label="버그 검색" placeholder="⌕  ID·제목·설명·담당자 검색..." />
  <select class="filter" id="bug-filter" aria-label="버그 상태 필터"><option value="">모든 상태</option><option ${initialBugStatus==='active'?'selected':''} value="active">Open + In Progress</option>${BUG_STATES.map(x=>`<option value="${x}">${x}</option>`).join('')}</select>
  <select class="filter" id="bug-priority-filter" aria-label="우선순위 필터"><option value="">모든 우선순위</option>${BUG_PRIORITIES.map(x=>`<option>${x}</option>`).join('')}</select>
  <select class="filter" id="bug-project-filter" aria-label="프로젝트 필터"><option value="">모든 프로젝트</option>${data.projects.map(p=>`<option value="${esc(p.key)}" ${analyticsDrillProject===p.key?'selected':''}>${esc(p.name)} (${esc(p.key)})</option>`).join('')}</select></div>
- <div class="panel"><div class="panel-head"><h3>Bug list</h3><span id="bug-result-count">${data.bugs.filter(b=>(!analyticsDrillProject||b.project===analyticsDrillProject)&&(!initialBugStatus||['Open','In Progress'].includes(b.status))).length} bugs</span></div><div class="table-wrap"><table><thead><tr><th>BUG ID</th><th>SUMMARY</th><th>PROJECT</th><th>PRIORITY</th><th>ASSIGNEE</th><th>STATUS</th><th>LINKED TESTS</th><th>CHANGE</th><th>DETAILS</th></tr></thead><tbody id="bug-rows">${bugRows(data.bugs.filter(b=>(!analyticsDrillProject||b.project===analyticsDrillProject)&&(!initialBugStatus||['Open','In Progress'].includes(b.status))))}</tbody></table></div></div>`;
+ <div class="panel"><div class="panel-head"><h3>Bug list</h3><span id="bug-result-count">${filtered.length} bugs</span></div><div class="table-wrap"><table><thead><tr><th>BUG ID</th><th>SUMMARY</th><th>PROJECT</th><th>PRIORITY</th><th>ASSIGNEE</th><th>STATUS</th><th>LINKED TESTS</th><th>CHANGE</th><th>DETAILS</th></tr></thead><tbody id="bug-rows">${bugRows(filtered)}</tbody></table></div></div>`;
 }
-function bugRows(rows){return rows.length?rows.map(b=>`<tr class="detail-click-row" tabindex="0" role="link" aria-label="${esc(b.id)} 버그 상세 보기" data-row-detail="bug" data-row-id="${esc(b.id)}"><td class="bug-id">${esc(b.id)}</td><td class="project-name">${esc(b.title)}</td><td>${esc(b.project)}</td><td>${pill(b.priority)}</td><td>${esc(b.owner)}</td><td>${pill(b.status)}</td><td>${bugLinks(b.id).length}</td><td><select class="filter bug-status" data-id="${esc(b.id)}" aria-label="${esc(b.id)} 상태 변경">${BUG_STATES.map(state=>`<option ${state===b.status?'selected':''}>${state}</option>`).join('')}</select></td><td><button type="button" class="btn" data-bug-id="${esc(b.id)}">상세 보기 →</button></td></tr>`).join(''):'<tr><td colspan="9" class="empty-note">조건에 맞는 버그가 없습니다.</td></tr>'}
+function bugRows(rows){return rows.length?rows.map(b=>`<tr class="detail-click-row" tabindex="0" role="link" aria-label="${esc(b.id)} 버그 상세 보기" data-row-detail="bug" data-row-id="${esc(b.id)}"><td class="bug-id">${esc(b.id)}</td><td class="project-name">${esc(b.title)}</td><td><strong>${esc(projectLabel(b.project))}</strong><div class="muted">${esc(b.project)}</div></td><td>${pill(b.priority)}</td><td>${esc(b.owner)}</td><td>${pill(b.status)}</td><td>${bugLinks(b.id).length}</td><td><select class="filter bug-status" data-id="${esc(b.id)}" aria-label="${esc(b.id)} 상태 변경">${BUG_STATES.map(state=>`<option ${state===b.status?'selected':''}>${state}</option>`).join('')}</select></td><td><button type="button" class="btn" data-bug-id="${esc(b.id)}">상세 보기 →</button></td></tr>`).join(''):'<tr><td colspan="9" class="empty-note">조건에 맞는 버그가 없습니다.</td></tr>'}
 
 function bugDetail(){
  const b=data.bugs.find(x=>x.id===selectedBugId);
@@ -526,6 +535,7 @@ function bindPage(){
  let ap=$('#analytics-project');if(ap)ap.addEventListener('change',e=>{analyticsProject=e.target.value;render()});
  let cpf=$('#case-project-filter');if(cpf)cpf.addEventListener('change',filterCases);
  let projectView=$('#project-view-filter');if(projectView)projectView.addEventListener('change',e=>{projectListFilter=e.target.value;initialProjectStatus='';selectedProjectKey=null;render()});
+ let bview=$('#bug-view-filter');if(bview)bview.addEventListener('change',e=>{bugListView=e.target.value;initialBugStatus='';render()});
  let bs=$('#bug-search');if(bs)bs.addEventListener('input',filterBugs);
  let bf=$('#bug-filter');if(bf)bf.addEventListener('change',filterBugs);
  for(const id of ['bug-priority-filter','bug-project-filter']){const el=$('#'+id);if(el)el.addEventListener('change',filterBugs)}
@@ -536,9 +546,9 @@ function openStats(action){
  if(action==='project-all'){page='projects';projectListFilter='all';analyticsDrillProject=''}
  else if(action==='project-active'){page='projects';projectListFilter='active';analyticsDrillProject=''}
  else if(action==='project-cases'){activateWorkspace('tc');return}
- else if(action==='project-bugs'){page='bugs';analyticsDrillProject=''}
+ else if(action==='project-bugs'){page='bugs';bugListView='active';analyticsDrillProject=''}
  else if(action==='dashboard-runs'){page='runs';selectedRunId=null;analyticsDrillProject=''}
- else if(action==='dashboard-bugs'){page='bugs';selectedBugId=null;analyticsDrillProject=''}
+ else if(action==='dashboard-bugs'){page='bugs';bugListView='active';selectedBugId=null;analyticsDrillProject=''}
  else if(action==='cases'){activateWorkspace('tc');tcHubProject=analyticsProject;render();return}
  else if(action==='passed-cases'){page='cases';initialCaseStatus='Pass'}
  else if(action==='open-bugs'){page='bugs';initialBugStatus='active'}
@@ -602,7 +612,7 @@ document.addEventListener('click',e=>{
  if(bugButton){selectedBugId=bugButton.dataset.bugId;page='bugs';render();return}
  const caseButton=e.target.closest('button[data-case-id]');
  if(caseButton){selectedCaseId=caseButton.dataset.caseId;page='cases';render();return}
- const runButton=e.target.closest('[data-run-id].btn');
+ const runButton=e.target.closest('button[data-run-id]:not(.run-result)');
  if(runButton){selectedRunId=runButton.dataset.runId;page='runs';render();return}
  const project=e.target.closest('[data-project-key]');
  if(project){selectedProjectKey=project.dataset.projectKey;page='projects';initialProjectStatus='';analyticsDrillProject='';render();return}
@@ -653,7 +663,7 @@ document.addEventListener('change',e=>{
 function filterCases(){let q=$('#case-search').value.toLowerCase(),s=$('#case-filter').value,project=$('#case-project-filter').value;$('#case-rows').innerHTML=caseRows(data.cases.filter(c=>(c.id+c.title+c.suite+projectLabel(c.project)).toLowerCase().includes(q)&&(!s||c.status===s)&&(!project||(project==='unassigned'?!c.project:c.project===project))))}
 function filterBugs(){
  const q=$('#bug-search').value.trim().toLocaleLowerCase(),status=$('#bug-filter').value,priority=$('#bug-priority-filter').value,project=$('#bug-project-filter').value;
- const filtered=data.bugs.filter(b=>[b.id,b.title,b.project,b.description||'',b.steps||'',b.owner].some(v=>String(v).toLocaleLowerCase().includes(q))&&(!status||(status==='active'?['Open','In Progress'].includes(b.status):b.status===status))&&(!priority||b.priority===priority)&&(!project||b.project===project));
+ const filtered=bugVisibilityRows().filter(b=>[b.id,b.title,b.project,projectLabel(b.project),b.description||'',b.steps||'',b.owner].some(v=>String(v).toLocaleLowerCase().includes(q))&&(!status||(status==='active'?['Open','In Progress'].includes(b.status):b.status===status))&&(!priority||b.priority===priority)&&(!project||b.project===project));
  $('#bug-rows').innerHTML=bugRows(filtered);$('#bug-result-count').textContent=filtered.length+' bugs';
 }
 

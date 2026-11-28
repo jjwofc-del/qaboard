@@ -153,3 +153,6 @@ button:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-vis
  .tc-mode .tc-collection-table th:nth-child(4){width:18%}
  .tc-mode .tc-collection-table th:nth-child(5){width:11%}
 }
+
+/* v1.1.4: clickable dashboard run activity and clear project labels */
+.activity-run-link{width:100%;display:flex;align-items:center;text-align:left;background:transparent;border:0;border-bottom:1px solid #f0f3f1;font-family:inherit;cursor:pointer;color:inherit;padding:11px 3px;border-radius:6px;gap:11px}.activity-run-link:hover,.activity-run-link:focus-visible{background:#eaf6f0;outline:2px solid transparent}.activity-run-text{display:block;flex:1;min-width:0}.activity-run-text strong,.activity-run-text small{display:block}.activity-arrow{color:#167d62;font-size:16px}.table-wrap td strong{font-weight:600}.table-wrap td .muted{margin-top:4px;font-size:10px}
